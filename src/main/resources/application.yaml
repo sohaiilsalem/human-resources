@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: hr-saas
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    # The application role is not the table owner, so row-level security applies to it.
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/hrsaas}
+    username: ${DB_APP_USER:hr_app}
+    password: ${DB_APP_PASSWORD:hr_app}
+  flyway:
+    # Migrations run as the owner role.
+    user: ${DB_OWNER_USER:hr_owner}
+    password: ${DB_OWNER_PASSWORD:hr_owner}
+    placeholders:
+      appRole: ${DB_APP_USER:hr_app}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  jackson:
+    deserialization:
+      # Jackson 3 rejects omitted primitives by default; optional flags (halfDay, disability…) default to false.
+      fail-on-null-for-primitives: false
+  mvc:
+    problemdetails:
+      enabled: true
+  messages:
+    basename: messages
+    fallback-to-system-locale: false
+  modulith:
+    events:
+      jdbc:
+        # event_publication is created by Flyway (V1), not by the application role.
+        schema-initialization:
+          enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, modulith
+
+hrsaas:
+  security:
+    jwt:
+      # Dev default only; set JWT_SECRET (>= 32 bytes) in every deployed environment.
+      secret: ${JWT_SECRET:dev-only-insecure-secret-change-me-0123456789}
+      issuer: hr-saas
+      access-token-ttl: 15m
+      refresh-token-ttl: 30d
+  billing:
+    trial-plan: PRO
+    trial-length: 14d

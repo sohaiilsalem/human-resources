@@ -1,0 +1,112 @@
+-- Leave management: types, per-tenant entitlement settings, balance ledger, requests.
+
+create table leave_types
+(
+    id                    uuid primary key,
+    tenant_id             uuid         not null references tenants (id),
+    code                  varchar(30)  not null,
+    name_en               varchar(100) not null,
+    name_ar               varchar(100) not null,
+    category              varchar(20)  not null,
+    paid                  boolean      not null,
+    tracks_balance        boolean      not null,
+    deducts_from_id       uuid references leave_types (id),
+    day_count_mode        varchar(20)  not null,
+    allow_half_day        boolean      not null,
+    max_days_per_request  integer,
+    max_days_per_year     integer,
+    max_times_per_service integer,
+    min_service_months    integer,
+    gender                varchar(10),
+    requires_attachment   boolean      not null,
+    active                boolean      not null,
+    created_at            timestamptz  not null,
+    created_by            uuid,
+    updated_at            timestamptz  not null,
+    updated_by            uuid,
+    version               bigint       not null,
+    unique (tenant_id, code)
+);
+
+create table leave_settings
+(
+    id                     uuid primary key,
+    tenant_id              uuid        not null unique references tenants (id),
+    first_year_days        integer     not null,
+    eligibility_months     integer     not null,
+    standard_days          integer     not null,
+    senior_days            integer     not null,
+    senior_service_years   integer     not null,
+    senior_age             integer     not null,
+    disability_days        integer     not null,
+    allow_negative_balance boolean     not null,
+    created_at             timestamptz not null,
+    created_by             uuid,
+    updated_at             timestamptz not null,
+    updated_by             uuid,
+    version                bigint      not null
+);
+
+create table leave_requests
+(
+    id            uuid primary key,
+    tenant_id     uuid          not null references tenants (id),
+    employee_id   uuid          not null references employees (id),
+    leave_type_id uuid          not null references leave_types (id),
+    start_date    date          not null,
+    end_date      date          not null,
+    half_day      boolean       not null,
+    days          numeric(6, 2) not null,
+    leave_year    integer       not null,
+    status        varchar(20)   not null,
+    reason        varchar(500),
+    requested_by  uuid          not null,
+    decided_by    uuid,
+    decided_at    timestamptz,
+    decision_note varchar(500),
+    created_at    timestamptz   not null,
+    created_by    uuid,
+    updated_at    timestamptz   not null,
+    updated_by    uuid,
+    version       bigint        not null,
+    check (end_date >= start_date),
+    check (days > 0)
+);
+create index leave_requests_employee_idx on leave_requests (tenant_id, employee_id, start_date);
+create index leave_requests_status_idx on leave_requests (tenant_id, status, start_date);
+
+create table leave_transactions
+(
+    id             uuid primary key,
+    tenant_id      uuid          not null references tenants (id),
+    employee_id    uuid          not null references employees (id),
+    leave_type_id  uuid          not null references leave_types (id),
+    leave_year     integer       not null,
+    kind           varchar(20)   not null,
+    days           numeric(6, 2) not null,
+    effective_date date          not null,
+    request_id     uuid references leave_requests (id),
+    note           varchar(500),
+    created_at     timestamptz   not null,
+    created_by     uuid,
+    updated_at     timestamptz   not null,
+    updated_by     uuid,
+    version        bigint        not null
+);
+create index leave_transactions_balance_idx on leave_transactions (tenant_id, employee_id, leave_type_id, leave_year);
+create unique index leave_transactions_entitlement_uq
+    on leave_transactions (tenant_id, employee_id, leave_type_id, leave_year) where kind = 'ENTITLEMENT';
+
+do $$
+    declare
+        t text;
+    begin
+        foreach t in array array ['leave_types', 'leave_settings', 'leave_requests', 'leave_transactions']
+            loop
+                execute format('alter table %I enable row level security', t);
+                execute format('alter table %I force row level security', t);
+                execute format('create policy tenant_isolation on %I using (tenant_id = app_current_tenant())'
+                                   || ' with check (tenant_id = app_current_tenant())', t);
+            end loop;
+    end
+$$;

@@ -1,0 +1,16 @@
+# Local development database: docker compose up -d
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: hrsaas
+      POSTGRES_USER: hr_owner
+      POSTGRES_PASSWORD: hr_owner
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  postgres-data:

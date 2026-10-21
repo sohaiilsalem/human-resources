@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Project-scoped Maven settings. Loaded via .mvn/maven.config so this project
+  ignores ~/.m2/settings.xml (and any mirrors configured there) and resolves
+  everything from Maven Central with its own local repository.
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 https://maven.apache.org/xsd/settings-1.2.0.xsd">
+    <localRepository>${user.home}/.m2/repository-personal</localRepository>
+    <mirrors/>
+    <profiles/>
+    <activeProfiles/>
+</settings>

@@ -1,0 +1,109 @@
+-- Foundation: tenancy helpers, platform tables (no RLS), Modulith event outbox, plan catalogue.
+-- Runs as the schema owner; the application connects as ${appRole}, which is subject to row-level security.
+
+create function app_current_tenant() returns uuid
+    language sql stable
+as $$ select nullif(current_setting('app.tenant_id', true), '')::uuid $$;
+
+grant usage on schema public to ${appRole};
+alter default privileges in schema public grant select, insert, update, delete on tables to ${appRole};
+
+-- ---------------------------------------------------------------- platform
+create table tenants
+(
+    id             uuid primary key,
+    slug           varchar(40)  not null unique,
+    name           varchar(200) not null,
+    status         varchar(20)  not null,
+    time_zone      varchar(50)  not null,
+    default_locale varchar(5)   not null,
+    created_at     timestamptz  not null,
+    created_by     uuid,
+    updated_at     timestamptz  not null,
+    updated_by     uuid,
+    version        bigint       not null
+);
+
+-- ---------------------------------------------------------------- billing
+create table plans
+(
+    id                         uuid primary key,
+    code                       varchar(30)    not null unique,
+    name_en                    varchar(100)   not null,
+    name_ar                    varchar(100)   not null,
+    monthly_price_per_employee numeric(14, 2) not null,
+    yearly_price_per_employee  numeric(14, 2) not null,
+    max_employees              integer,
+    max_branches               integer,
+    active                     boolean        not null,
+    sort_order                 integer        not null,
+    created_at                 timestamptz    not null,
+    created_by                 uuid,
+    updated_at                 timestamptz    not null,
+    updated_by                 uuid,
+    version                    bigint         not null
+);
+
+create table plan_features
+(
+    plan_id uuid        not null references plans (id) on delete cascade,
+    feature varchar(40) not null,
+    primary key (plan_id, feature)
+);
+
+create table subscriptions
+(
+    id                   uuid primary key,
+    tenant_id            uuid        not null unique references tenants (id),
+    plan_id              uuid        not null references plans (id),
+    status               varchar(20) not null,
+    billing_cycle        varchar(10) not null,
+    seats                integer     not null,
+    current_period_start timestamptz not null,
+    current_period_end   timestamptz not null,
+    trial_ends_at        timestamptz,
+    created_at           timestamptz not null,
+    created_by           uuid,
+    updated_at           timestamptz not null,
+    updated_by           uuid,
+    version              bigint      not null
+);
+
+-- Prices are placeholders until plan pricing is decided (ARCHITECTURE §13.5).
+insert into plans (id, code, name_en, name_ar, monthly_price_per_employee, yearly_price_per_employee,
+                   max_employees, max_branches, active, sort_order, created_at, updated_at, version)
+values ('01900000-0000-7000-8000-000000000001', 'BASIC', 'Basic', 'الأساسية', 0, 0, 50, 1, true, 1, now(), now(), 0),
+       ('01900000-0000-7000-8000-000000000002', 'PRO', 'Pro', 'الاحترافية', 0, 0, null, null, true, 2, now(), now(), 0),
+       ('01900000-0000-7000-8000-000000000003', 'ENTERPRISE', 'Enterprise', 'المؤسسات', 0, 0, null, null, true, 3, now(), now(), 0);
+
+insert into plan_features (plan_id, feature)
+select p.id, f.feature
+from plans p
+         cross join lateral (values ('CORE_HR'), ('LEAVE'), ('WEB_ATTENDANCE'), ('SELF_SERVICE')) as f(feature)
+union all
+select p.id, f.feature
+from plans p
+         cross join lateral (values ('PAYROLL'), ('MOBILE_ATTENDANCE'), ('BIOMETRIC_DEVICES'),
+                                    ('APPROVAL_WORKFLOWS')) as f(feature)
+where p.code in ('PRO', 'ENTERPRISE')
+union all
+select p.id, f.feature
+from plans p
+         cross join lateral (values ('API_ACCESS'), ('SSO'), ('CUSTOM_REPORTS')) as f(feature)
+where p.code = 'ENTERPRISE';
+
+-- ---------------------------------------------------------------- Spring Modulith event publication registry (v2)
+create table event_publication
+(
+    id                     uuid                     not null primary key,
+    listener_id            text                     not null,
+    event_type             text                     not null,
+    serialized_event       text                     not null,
+    publication_date       timestamp with time zone not null,
+    completion_date        timestamp with time zone,
+    status                 text,
+    completion_attempts    int,
+    last_resubmission_date timestamp with time zone
+);
+create index event_publication_serialized_event_hash_idx on event_publication using hash (serialized_event);
+create index event_publication_by_completion_date_idx on event_publication (completion_date);
