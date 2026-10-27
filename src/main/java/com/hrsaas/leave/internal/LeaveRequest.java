@@ -3,7 +3,6 @@ package com.hrsaas.leave.internal;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,7 +20,7 @@ import com.hrsaas.shared.persistence.TenantEntity;
 class LeaveRequest extends TenantEntity {
 
 	@Column(nullable = false, updatable = false)
-	private UUID employeeId;
+	private Long employeeId;
 
 	@ManyToOne(fetch = FetchType.EAGER, optional = false)
 	@JoinColumn(name = "leave_type_id", updatable = false)
@@ -51,9 +50,9 @@ class LeaveRequest extends TenantEntity {
 	private String reason;
 
 	@Column(nullable = false, updatable = false)
-	private UUID requestedBy;
+	private Long requestedBy;
 
-	private UUID decidedBy;
+	private Long decidedBy;
 
 	private Instant decidedAt;
 
@@ -63,8 +62,8 @@ class LeaveRequest extends TenantEntity {
 	protected LeaveRequest() {
 	}
 
-	LeaveRequest(UUID employeeId, LeaveType leaveType, LocalDate startDate, LocalDate endDate, boolean halfDay,
-			BigDecimal days, String reason, UUID requestedBy) {
+	LeaveRequest(Long employeeId, LeaveType leaveType, LocalDate startDate, LocalDate endDate, boolean halfDay,
+			BigDecimal days, String reason, Long requestedBy) {
 		this.employeeId = employeeId;
 		this.leaveType = leaveType;
 		this.startDate = startDate;
@@ -77,7 +76,7 @@ class LeaveRequest extends TenantEntity {
 		this.requestedBy = requestedBy;
 	}
 
-	void decide(LeaveRequestStatus outcome, UUID by, Instant at, String note) {
+	void decide(LeaveRequestStatus outcome, Long by, Instant at, String note) {
 		this.status = outcome;
 		this.decidedBy = by;
 		this.decidedAt = at;
@@ -92,7 +91,7 @@ class LeaveRequest extends TenantEntity {
 		return status == LeaveRequestStatus.APPROVED;
 	}
 
-	UUID getEmployeeId() {
+	Long getEmployeeId() {
 		return employeeId;
 	}
 
@@ -128,11 +127,11 @@ class LeaveRequest extends TenantEntity {
 		return reason;
 	}
 
-	UUID getRequestedBy() {
+	Long getRequestedBy() {
 		return requestedBy;
 	}
 
-	UUID getDecidedBy() {
+	Long getDecidedBy() {
 		return decidedBy;
 	}
 

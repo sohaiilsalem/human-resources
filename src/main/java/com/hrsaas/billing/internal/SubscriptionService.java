@@ -2,7 +2,6 @@ package com.hrsaas.billing.internal;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.UUID;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.event.EventListener;
@@ -45,7 +44,7 @@ class SubscriptionService implements FeatureGate {
 	}
 
 	@Override
-	public boolean isEnabled(UUID tenantId, Feature feature) {
+	public boolean isEnabled(Long tenantId, Feature feature) {
 		return subscriptions.findByTenantId(tenantId)
 			.filter(subscription -> subscription.isInGoodStanding(clock.instant()))
 			.map(subscription -> subscription.getPlan().includes(feature))

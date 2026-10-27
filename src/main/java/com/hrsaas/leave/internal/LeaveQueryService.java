@@ -5,7 +5,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
@@ -48,7 +47,7 @@ class LeaveQueryService {
 		this.today = today;
 	}
 
-	List<BalanceView> balances(UUID employeeId) {
+	List<BalanceView> balances(Long employeeId) {
 		EmployeeInfo employee = employee(employeeId);
 		int year = today.get().getYear();
 		entitlements.syncAnnual(employee, year);
@@ -80,18 +79,18 @@ class LeaveQueryService {
 	}
 
 	@Transactional(readOnly = true)
-	Page<RequestView> requestsOf(UUID employeeId, Pageable pageable) {
+	Page<RequestView> requestsOf(Long employeeId, Pageable pageable) {
 		return withEmployees(requests.findByEmployeeId(employeeId, pageable));
 	}
 
 	/** HR sees every request; a manager sees their direct reports'. */
 	@Transactional(readOnly = true)
-	Page<RequestView> search(Actor actor, LeaveRequestStatus status, UUID employeeId, Pageable pageable) {
+	Page<RequestView> search(Actor actor, LeaveRequestStatus status, Long employeeId, Pageable pageable) {
 		if (actor.canManage()) {
 			return withEmployees(requests.search(status, employeeId, pageable));
 		}
 		if (actor.canApprove() && actor.employeeId() != null) {
-			List<UUID> team = employees.findDirectReportIds(actor.employeeId());
+			List<Long> team = employees.findDirectReportIds(actor.employeeId());
 			if (employeeId != null) {
 				team = team.contains(employeeId) ? List.of(employeeId) : List.of();
 			}
@@ -109,9 +108,9 @@ class LeaveQueryService {
 	}
 
 	@Transactional(readOnly = true)
-	List<TransactionView> history(UUID employeeId) {
+	List<TransactionView> history(Long employeeId) {
 		employee(employeeId);
-		Map<UUID, String> codes = types.findAll()
+		Map<Long, String> codes = types.findAll()
 			.stream()
 			.collect(Collectors.toMap(LeaveType::getId, LeaveType::getCode));
 		return ledger.history(employeeId)
@@ -122,18 +121,18 @@ class LeaveQueryService {
 	}
 
 	/** Whether the actor may see this employee's balances: themselves, HR, or their manager. */
-	boolean canSeeEmployee(Actor actor, UUID employeeId) {
+	boolean canSeeEmployee(Actor actor, Long employeeId) {
 		return actor.isEmployee(employeeId) || actor.canManage() || (actor.canApprove() && actor.employeeId() != null
 				&& employee(employeeId).managerId() != null
 				&& employee(employeeId).managerId().equals(actor.employeeId()));
 	}
 
-	private EmployeeInfo employee(UUID employeeId) {
+	private EmployeeInfo employee(Long employeeId) {
 		return employees.findById(employeeId).orElseThrow(() -> ApiException.notFound("employee.not-found"));
 	}
 
 	private Page<RequestView> withEmployees(Page<LeaveRequest> page) {
-		Map<UUID, EmployeeInfo> byId = employees
+		Map<Long, EmployeeInfo> byId = employees
 			.findAllById(page.getContent().stream().map(LeaveRequest::getEmployeeId).collect(Collectors.toSet()));
 		return page.map(request -> RequestView.of(request, byId.get(request.getEmployeeId())));
 	}

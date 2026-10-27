@@ -1,10 +1,9 @@
 package com.hrsaas.leave.internal;
 
 import java.util.Set;
-import java.util.UUID;
 
 /** Who is acting, as far as leave rules care. {@code employeeId} is null for users without an employee record. */
-record Actor(UUID userId, UUID employeeId, Set<String> authorities) {
+record Actor(Long userId, Long employeeId, Set<String> authorities) {
 
 	boolean canManage() {
 		return authorities.contains("leave:manage");
@@ -14,7 +13,7 @@ record Actor(UUID userId, UUID employeeId, Set<String> authorities) {
 		return authorities.contains("leave:approve");
 	}
 
-	boolean isEmployee(UUID id) {
+	boolean isEmployee(Long id) {
 		return employeeId != null && employeeId.equals(id);
 	}
 

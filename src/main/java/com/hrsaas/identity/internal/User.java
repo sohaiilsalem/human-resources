@@ -2,20 +2,21 @@ package com.hrsaas.identity.internal;
 
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
-import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
-import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.JoinTable;
+import jakarta.persistence.ManyToMany;
 import jakarta.persistence.Table;
 
-import com.hrsaas.identity.Role;
+import com.hrsaas.identity.Permission;
 import com.hrsaas.shared.persistence.TenantEntity;
 
 @Entity
@@ -38,20 +39,19 @@ class User extends TenantEntity {
 	@Column(nullable = false, length = 20)
 	private UserStatus status;
 
-	private UUID employeeId;
+	private Long employeeId;
 
 	private Instant lastLoginAt;
 
-	@ElementCollection(fetch = FetchType.EAGER)
-	@CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
-	@Enumerated(EnumType.STRING)
-	@Column(name = "role", nullable = false, length = 30)
-	private Set<Role> roles = EnumSet.noneOf(Role.class);
+	@ManyToMany(fetch = FetchType.EAGER)
+	@JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"),
+			inverseJoinColumns = @JoinColumn(name = "role_id"))
+	private Set<Role> roles = new HashSet<>();
 
 	protected User() {
 	}
 
-	User(String email, String fullName, String passwordHash, String locale, Set<Role> roles, UUID employeeId) {
+	User(String email, String fullName, String passwordHash, String locale, Set<Role> roles, Long employeeId) {
 		this.email = email;
 		this.fullName = fullName;
 		this.passwordHash = passwordHash;
@@ -81,7 +81,7 @@ class User extends TenantEntity {
 		return passwordHash;
 	}
 
-	UUID getEmployeeId() {
+	Long getEmployeeId() {
 		return employeeId;
 	}
 
@@ -91,6 +91,18 @@ class User extends TenantEntity {
 
 	Set<Role> getRoles() {
 		return Set.copyOf(roles);
+	}
+
+	/** Role codes, sorted, as they appear in tokens and responses. */
+	List<String> getRoleCodes() {
+		return roles.stream().map(Role::getCode).sorted().toList();
+	}
+
+	/** Union of the permissions of all roles. */
+	Set<Permission> getPermissions() {
+		Set<Permission> permissions = EnumSet.noneOf(Permission.class);
+		roles.forEach(role -> permissions.addAll(role.getPermissions()));
+		return permissions;
 	}
 
 }

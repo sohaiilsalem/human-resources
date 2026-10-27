@@ -4,17 +4,16 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 /** Employees of the current tenant. */
 public interface EmployeeDirectory {
 
-	Optional<EmployeeInfo> findById(UUID id);
+	Optional<EmployeeInfo> findById(Long id);
 
-	Map<UUID, EmployeeInfo> findAllById(Collection<UUID> ids);
+	Map<Long, EmployeeInfo> findAllById(Collection<Long> ids);
 
-	List<UUID> findActiveIds();
+	List<Long> findActiveIds();
 
-	List<UUID> findDirectReportIds(UUID managerId);
+	List<Long> findDirectReportIds(Long managerId);
 
 }

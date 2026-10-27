@@ -1,8 +1,6 @@
 package com.hrsaas.identity.internal;
 
-import java.util.Comparator;
 import java.util.List;
-import java.util.UUID;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -11,7 +9,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.hrsaas.identity.Permission;
-import com.hrsaas.identity.Role;
 import com.hrsaas.platform.TenantDirectory;
 import com.hrsaas.platform.TenantInfo;
 import com.hrsaas.shared.tenant.TenantContext;
@@ -32,26 +29,19 @@ class MeController {
 	@GetMapping("/api/v1/me")
 	@Transactional(readOnly = true)
 	MeResponse me(@AuthenticationPrincipal Jwt jwt) {
-		User user = users.findById(UUID.fromString(jwt.getSubject()))
+		User user = users.findById(Long.valueOf(jwt.getSubject()))
 			.orElseThrow(() -> ApiException.notFound("user.not-found"));
 		TenantInfo tenant = tenants.findById(TenantContext.require()).orElseThrow();
-		List<String> permissions = user.getRoles()
-			.stream()
-			.flatMap(role -> role.permissions().stream())
-			.map(Permission::authority)
-			.distinct()
-			.sorted()
-			.toList();
-		List<Role> roles = user.getRoles().stream().sorted(Comparator.naturalOrder()).toList();
+		List<String> permissions = user.getPermissions().stream().map(Permission::authority).sorted().toList();
 		return new MeResponse(user.getId(), user.getEmail(), user.getFullName(), user.getLocale(), user.getEmployeeId(),
-				roles, permissions,
+				user.getRoleCodes(), permissions,
 				new MeResponse.Tenant(tenant.id(), tenant.slug(), tenant.name()));
 	}
 
-	record MeResponse(UUID id, String email, String fullName, String locale, UUID employeeId, List<Role> roles,
+	record MeResponse(Long id, String email, String fullName, String locale, Long employeeId, List<String> roles,
 			List<String> permissions, Tenant tenant) {
 
-		record Tenant(UUID id, String slug, String name) {
+		record Tenant(Long id, String slug, String name) {
 		}
 
 	}

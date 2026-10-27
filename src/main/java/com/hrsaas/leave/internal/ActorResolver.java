@@ -1,7 +1,6 @@
 package com.hrsaas.leave.internal;
 
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.security.core.GrantedAuthority;
@@ -20,7 +19,7 @@ class ActorResolver {
 	}
 
 	Actor resolve(JwtAuthenticationToken authentication) {
-		UUID userId = UUID.fromString(authentication.getToken().getSubject());
+		Long userId = Long.valueOf(authentication.getToken().getSubject());
 		Set<String> authorities = authentication.getAuthorities()
 			.stream()
 			.map(GrantedAuthority::getAuthority)

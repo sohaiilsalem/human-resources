@@ -2,7 +2,6 @@ package com.hrsaas.leave.internal;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.UUID;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,7 +72,7 @@ class LeaveAdminService {
 	}
 
 	/** Opening balances, carried-over days or corrections. Positive adds days, negative removes them. */
-	LeaveTransaction adjust(UUID employeeId, String leaveTypeCode, BigDecimal days, String note) {
+	LeaveTransaction adjust(Long employeeId, String leaveTypeCode, BigDecimal days, String note) {
 		employees.findById(employeeId).orElseThrow(() -> ApiException.notFound("employee.not-found"));
 		LeaveType type = types.findByCode(leaveTypeCode)
 			.orElseThrow(() -> ApiException.notFound("leave.type-not-found", leaveTypeCode));

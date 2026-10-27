@@ -1,7 +1,5 @@
 package com.hrsaas.shared.persistence;
 
-import java.util.UUID;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.MappedSuperclass;
 
@@ -16,9 +14,9 @@ public abstract class TenantEntity extends BaseEntity {
 
 	@TenantId
 	@Column(name = "tenant_id", nullable = false, updatable = false)
-	private UUID tenantId;
+	private Long tenantId;
 
-	public UUID getTenantId() {
+	public Long getTenantId() {
 		return tenantId;
 	}
 

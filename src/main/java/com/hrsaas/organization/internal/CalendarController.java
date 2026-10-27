@@ -4,7 +4,6 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -68,7 +67,7 @@ class CalendarController {
 	@DeleteMapping("/holidays/{id}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	@PreAuthorize("hasAuthority('organization:manage')")
-	void deleteHoliday(@PathVariable UUID id) {
+	void deleteHoliday(@PathVariable Long id) {
 		calendar.deleteHoliday(id);
 	}
 
@@ -79,7 +78,7 @@ class CalendarController {
 			@NotBlank @Size(max = 200) String nameAr) {
 	}
 
-	record HolidayResponse(UUID id, LocalDate startDate, LocalDate endDate, String nameEn, String nameAr) {
+	record HolidayResponse(Long id, LocalDate startDate, LocalDate endDate, String nameEn, String nameAr) {
 
 		static HolidayResponse of(PublicHoliday holiday) {
 			return new HolidayResponse(holiday.getId(), holiday.getStartDate(), holiday.getEndDate(),

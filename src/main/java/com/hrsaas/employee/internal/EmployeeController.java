@@ -1,7 +1,6 @@
 package com.hrsaas.employee.internal;
 
 import java.time.LocalDate;
-import java.util.UUID;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -44,8 +43,8 @@ class EmployeeController {
 
 	@GetMapping("/{id}")
 	@PreAuthorize("hasAuthority('employee:read')")
-	EmployeeInfo get(@PathVariable UUID id) {
-		return employees.get(id).toInfo();
+	EmployeeInfo get(@PathVariable Long id) {
+		return employees.getInfo(id);
 	}
 
 	@PostMapping
@@ -57,13 +56,13 @@ class EmployeeController {
 
 	@PutMapping("/{id}")
 	@PreAuthorize("hasAuthority('employee:write')")
-	EmployeeInfo update(@PathVariable UUID id, @Valid @RequestBody EmployeeRequest request) {
+	EmployeeInfo update(@PathVariable Long id, @Valid @RequestBody EmployeeRequest request) {
 		return employees.update(id, request);
 	}
 
 	@PostMapping("/{id}/terminate")
 	@PreAuthorize("hasAuthority('employee:write')")
-	EmployeeInfo terminate(@PathVariable UUID id, @Valid @RequestBody Termination request) {
+	EmployeeInfo terminate(@PathVariable Long id, @Valid @RequestBody Termination request) {
 		return employees.terminate(id, request.terminationDate());
 	}
 

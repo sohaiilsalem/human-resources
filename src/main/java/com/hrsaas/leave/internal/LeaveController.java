@@ -3,7 +3,6 @@ package com.hrsaas.leave.internal;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -99,13 +98,13 @@ class LeaveController {
 	@PreAuthorize("hasAnyAuthority('leave:manage', 'leave:approve')")
 	PagedModel<RequestView> search(JwtAuthenticationToken auth,
 			@RequestParam(required = false) LeaveRequestStatus status,
-			@RequestParam(required = false) UUID employeeId,
+			@RequestParam(required = false) Long employeeId,
 			@PageableDefault(sort = "startDate", direction = Sort.Direction.DESC) Pageable pageable) {
 		return new PagedModel<>(queries.search(actors.resolve(auth), status, employeeId, pageable));
 	}
 
 	@GetMapping("/requests/{id}")
-	RequestView get(JwtAuthenticationToken auth, @PathVariable UUID id) {
+	RequestView get(JwtAuthenticationToken auth, @PathVariable Long id) {
 		return queries.view(requests.getVisible(id, actors.resolve(auth)));
 	}
 
@@ -121,21 +120,21 @@ class LeaveController {
 
 	@PostMapping("/requests/{id}/approve")
 	@PreAuthorize("hasAnyAuthority('leave:manage', 'leave:approve')")
-	RequestView approve(JwtAuthenticationToken auth, @PathVariable UUID id,
+	RequestView approve(JwtAuthenticationToken auth, @PathVariable Long id,
 			@Valid @RequestBody(required = false) MyLeaveController.Note note) {
 		return queries.view(requests.approve(id, actors.resolve(auth), note != null ? note.note() : null));
 	}
 
 	@PostMapping("/requests/{id}/reject")
 	@PreAuthorize("hasAnyAuthority('leave:manage', 'leave:approve')")
-	RequestView reject(JwtAuthenticationToken auth, @PathVariable UUID id,
+	RequestView reject(JwtAuthenticationToken auth, @PathVariable Long id,
 			@Valid @RequestBody(required = false) MyLeaveController.Note note) {
 		return queries.view(requests.reject(id, actors.resolve(auth), note != null ? note.note() : null));
 	}
 
 	@PostMapping("/requests/{id}/cancel")
 	@PreAuthorize("hasAuthority('leave:manage')")
-	RequestView cancel(JwtAuthenticationToken auth, @PathVariable UUID id,
+	RequestView cancel(JwtAuthenticationToken auth, @PathVariable Long id,
 			@Valid @RequestBody(required = false) MyLeaveController.Note note) {
 		return queries.view(requests.cancel(id, actors.resolve(auth), note != null ? note.note() : null));
 	}
@@ -144,7 +143,7 @@ class LeaveController {
 
 	@GetMapping("/employees/{employeeId}/balances")
 	@PreAuthorize("hasAnyAuthority('leave:manage', 'leave:approve')")
-	List<BalanceView> balances(JwtAuthenticationToken auth, @PathVariable UUID employeeId) {
+	List<BalanceView> balances(JwtAuthenticationToken auth, @PathVariable Long employeeId) {
 		if (!queries.canSeeEmployee(actors.resolve(auth), employeeId)) {
 			throw ApiException.forbidden("leave.not-your-team");
 		}
@@ -153,7 +152,7 @@ class LeaveController {
 
 	@GetMapping("/employees/{employeeId}/transactions")
 	@PreAuthorize("hasAuthority('leave:manage')")
-	List<TransactionView> transactions(@PathVariable UUID employeeId) {
+	List<TransactionView> transactions(@PathVariable Long employeeId) {
 		return queries.history(employeeId);
 	}
 
@@ -166,11 +165,11 @@ class LeaveController {
 				t.getEffectiveDate(), null, t.getNote(), t.getCreatedAt());
 	}
 
-	record OnBehalf(@NotNull UUID employeeId, @NotBlank String leaveType, @NotNull LocalDate startDate,
+	record OnBehalf(@NotNull Long employeeId, @NotBlank String leaveType, @NotNull LocalDate startDate,
 			@NotNull LocalDate endDate, boolean halfDay, @Size(max = 500) String reason) {
 	}
 
-	record Adjustment(@NotNull UUID employeeId, @NotBlank String leaveType,
+	record Adjustment(@NotNull Long employeeId, @NotBlank String leaveType,
 			@NotNull @DecimalMin("-366") @DecimalMax("366") @Digits(integer = 3, fraction = 1) BigDecimal days,
 			@NotBlank @Size(max = 500) String note) {
 	}

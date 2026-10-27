@@ -5,7 +5,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -28,21 +27,23 @@ import com.hrsaas.shared.web.ApiException;
 class EmployeeService implements EmployeeDirectory {
 
 	private final EmployeeRepository employees;
+	private final JobTitleRepository jobTitles;
 
 	private final ApplicationEventPublisher events;
 
-	EmployeeService(EmployeeRepository employees, ApplicationEventPublisher events) {
+	EmployeeService(EmployeeRepository employees, JobTitleRepository jobTitles, ApplicationEventPublisher events) {
 		this.employees = employees;
+		this.jobTitles = jobTitles;
 		this.events = events;
 	}
 
 	@Override
-	public Optional<EmployeeInfo> findById(UUID id) {
+	public Optional<EmployeeInfo> findById(Long id) {
 		return employees.findById(id).map(Employee::toInfo);
 	}
 
 	@Override
-	public Map<UUID, EmployeeInfo> findAllById(Collection<UUID> ids) {
+	public Map<Long, EmployeeInfo> findAllById(Collection<Long> ids) {
 		return employees.findAllById(ids)
 			.stream()
 			.map(Employee::toInfo)
@@ -50,12 +51,12 @@ class EmployeeService implements EmployeeDirectory {
 	}
 
 	@Override
-	public List<UUID> findActiveIds() {
+	public List<Long> findActiveIds() {
 		return employees.findActiveIds();
 	}
 
 	@Override
-	public List<UUID> findDirectReportIds(UUID managerId) {
+	public List<Long> findDirectReportIds(Long managerId) {
 		return employees.findDirectReportIds(managerId);
 	}
 
@@ -64,8 +65,12 @@ class EmployeeService implements EmployeeDirectory {
 		return page.map(Employee::toInfo);
 	}
 
-	Employee get(UUID id) {
+	Employee get(Long id) {
 		return employees.findById(id).orElseThrow(() -> ApiException.notFound("employee.not-found"));
+	}
+
+	EmployeeInfo getInfo(Long id) {
+		return get(id).toInfo();
 	}
 
 	@Transactional
@@ -74,24 +79,26 @@ class EmployeeService implements EmployeeDirectory {
 			throw ApiException.conflict("employee.code-taken", request.code());
 		}
 		validateManager(request.managerId(), null);
-		Employee employee = employees.save(new Employee(request));
+		Employee employee = employees.save(new Employee(request, resolveJobTitle(request.jobTitleId())));
 		events.publishEvent(new EmployeeHired(TenantContext.require(), employee.getId(), request.hireDate()));
 		return employee.toInfo();
 	}
 
 	@Transactional
-	EmployeeInfo update(UUID id, EmployeeRequest request) {
+	EmployeeInfo update(Long id, EmployeeRequest request) {
 		Employee employee = get(id);
 		if (employees.existsByCodeAndIdNot(request.code().strip(), id)) {
 			throw ApiException.conflict("employee.code-taken", request.code());
 		}
 		validateManager(request.managerId(), id);
-		employee.apply(request);
+		JobTitle jobTitle = request.jobTitleId() == null ? employee.getJobTitle()
+				: resolveJobTitle(request.jobTitleId());
+		employee.apply(request, jobTitle);
 		return employee.toInfo();
 	}
 
 	@Transactional
-	EmployeeInfo terminate(UUID id, LocalDate date) {
+	EmployeeInfo terminate(Long id, LocalDate date) {
 		Employee employee = get(id);
 		if (!employee.isActive()) {
 			throw ApiException.conflict("employee.already-terminated");
@@ -101,13 +108,21 @@ class EmployeeService implements EmployeeDirectory {
 		return employee.toInfo();
 	}
 
-	private void validateManager(UUID managerId, UUID employeeId) {
+	private void validateManager(Long managerId, Long employeeId) {
 		if (managerId == null) {
 			return;
 		}
 		if (managerId.equals(employeeId) || !employees.existsById(managerId)) {
 			throw ApiException.unprocessable("employee.invalid-manager");
 		}
+	}
+
+	private JobTitle resolveJobTitle(Long jobTitleId) {
+		if (jobTitleId == null) {
+			return null;
+		}
+		return jobTitles.findById(jobTitleId)
+			.orElseThrow(() -> ApiException.unprocessable("job-title.not-found", jobTitleId));
 	}
 
 }

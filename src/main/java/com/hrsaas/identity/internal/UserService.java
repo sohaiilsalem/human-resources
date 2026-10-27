@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -17,7 +16,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.hrsaas.employee.EmployeeDirectory;
-import com.hrsaas.identity.Role;
 import com.hrsaas.identity.UserAccounts;
 import com.hrsaas.shared.web.ApiException;
 
@@ -29,16 +27,20 @@ class UserService implements UserAccounts {
 
 	private final EmployeeDirectory employees;
 
+	private final RoleService roles;
+
 	private final PasswordEncoder passwordEncoder;
 
-	UserService(UserRepository users, EmployeeDirectory employees, PasswordEncoder passwordEncoder) {
+	UserService(UserRepository users, EmployeeDirectory employees, RoleService roles,
+			PasswordEncoder passwordEncoder) {
 		this.users = users;
 		this.employees = employees;
+		this.roles = roles;
 		this.passwordEncoder = passwordEncoder;
 	}
 
 	@Override
-	public Optional<UUID> employeeIdOf(UUID userId) {
+	public Optional<Long> employeeIdOf(Long userId) {
 		return users.findById(userId).map(User::getEmployeeId);
 	}
 
@@ -56,9 +58,7 @@ class UserService implements UserAccounts {
 		if (users.existsByEmail(email)) {
 			throw ApiException.conflict("user.email-taken", email);
 		}
-		if (request.roles().contains(Role.OWNER)) {
-			throw ApiException.forbidden("user.cannot-grant-owner");
-		}
+		Set<Role> granted = roles.resolveGrantable(request.roles());
 		if (request.employeeId() != null) {
 			if (employees.findById(request.employeeId()).isEmpty()) {
 				throw ApiException.unprocessable("employee.not-found");
@@ -69,11 +69,11 @@ class UserService implements UserAccounts {
 		}
 		String locale = request.locale() != null ? request.locale() : "en";
 		return users.save(new User(email, request.fullName().strip(), passwordEncoder.encode(request.password()),
-				locale, request.roles(), request.employeeId()));
+				locale, granted, request.employeeId()));
 	}
 
 	record CreateUser(@NotBlank @Email @Size(max = 254) String email, @NotBlank @Size(max = 200) String fullName,
-			@NotBlank @Size(min = 8, max = 128) String password, @NotEmpty Set<Role> roles, UUID employeeId,
+			@NotBlank @Size(min = 8, max = 128) String password, @NotEmpty Set<String> roles, Long employeeId,
 			@Pattern(regexp = "en|ar", message = "{validation.locale}") String locale) {
 	}
 

@@ -3,7 +3,6 @@ package com.hrsaas.leave.internal;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
-import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
@@ -59,14 +58,14 @@ class AnnualEntitlementTest {
 
 	@Test
 	void disabilityRaisesTheMinimum() {
-		EmployeeInfo employee = new EmployeeInfo(UUID.randomUUID(), "E1", "A", "أ", Gender.MALE,
+		EmployeeInfo employee = new EmployeeInfo(1L, "E1", "A", "أ", Gender.MALE,
 				LocalDate.parse("1990-01-01"), LocalDate.parse("2026-01-01"), EmployeeStatus.ACTIVE, null, null, true);
 		assertThat(AnnualEntitlement.forYear(2026, employee, LAW).orElseThrow().days()).isEqualTo(45);
 	}
 
 	@Test
 	void noGrantForYearsAfterTermination() {
-		EmployeeInfo employee = new EmployeeInfo(UUID.randomUUID(), "E1", "A", "أ", Gender.MALE,
+		EmployeeInfo employee = new EmployeeInfo(1L, "E1", "A", "أ", Gender.MALE,
 				LocalDate.parse("1990-01-01"), LocalDate.parse("2020-01-01"), EmployeeStatus.TERMINATED,
 				LocalDate.parse("2025-06-30"), null, false);
 		assertThat(AnnualEntitlement.forYear(2025, employee, LAW)).isPresent();
@@ -82,7 +81,7 @@ class AnnualEntitlementTest {
 	}
 
 	private static EmployeeInfo employee(String hireDate, String birthDate) {
-		return new EmployeeInfo(UUID.randomUUID(), "E1", "A", "أ", Gender.MALE, LocalDate.parse(birthDate),
+		return new EmployeeInfo(1L, "E1", "A", "أ", Gender.MALE, LocalDate.parse(birthDate),
 				LocalDate.parse(hireDate), EmployeeStatus.ACTIVE, null, null, false);
 	}
 

@@ -1,15 +1,18 @@
 package com.hrsaas.employee.internal;
 
 import java.time.LocalDate;
-import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 import com.hrsaas.employee.EmployeeInfo;
+import com.hrsaas.employee.JobTitleInfo;
 import com.hrsaas.employee.EmployeeStatus;
 import com.hrsaas.employee.Gender;
 import com.hrsaas.shared.persistence.TenantEntity;
@@ -47,7 +50,11 @@ class Employee extends TenantEntity {
 
 	private LocalDate terminationDate;
 
-	private UUID managerId;
+	private Long managerId;
+
+	@ManyToOne(fetch = FetchType.LAZY)
+	@JoinColumn(name = "job_title_id")
+	private JobTitle jobTitle;
 
 	@Column(nullable = false)
 	private boolean disability;
@@ -55,12 +62,12 @@ class Employee extends TenantEntity {
 	protected Employee() {
 	}
 
-	Employee(EmployeeRequest request) {
+	Employee(EmployeeRequest request, JobTitle jobTitle) {
 		this.status = EmployeeStatus.ACTIVE;
-		apply(request);
+		apply(request, jobTitle);
 	}
 
-	void apply(EmployeeRequest request) {
+	void apply(EmployeeRequest request, JobTitle jobTitle) {
 		this.code = request.code().strip();
 		this.fullNameEn = request.fullNameEn().strip();
 		this.fullNameAr = request.fullNameAr().strip();
@@ -69,6 +76,7 @@ class Employee extends TenantEntity {
 		this.birthDate = request.birthDate();
 		this.hireDate = request.hireDate();
 		this.managerId = request.managerId();
+		this.jobTitle = jobTitle;
 		this.disability = request.disability();
 	}
 
@@ -89,9 +97,15 @@ class Employee extends TenantEntity {
 		return nationalId;
 	}
 
+	JobTitle getJobTitle() {
+		return jobTitle;
+	}
+
 	EmployeeInfo toInfo() {
 		return new EmployeeInfo(getId(), code, fullNameEn, fullNameAr, gender, birthDate, hireDate, status,
-				terminationDate, managerId, disability);
+				terminationDate, managerId, disability,
+				jobTitle == null ? null : new JobTitleInfo(jobTitle.getId(), jobTitle.getCode(), jobTitle.getNameEn(),
+						jobTitle.getNameAr()));
 	}
 
 }

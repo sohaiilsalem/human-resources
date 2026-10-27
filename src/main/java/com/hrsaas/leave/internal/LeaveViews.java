@@ -3,7 +3,6 @@ package com.hrsaas.leave.internal;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.UUID;
 
 import com.hrsaas.employee.EmployeeInfo;
 import com.hrsaas.employee.Gender;
@@ -15,7 +14,7 @@ final class LeaveViews {
 	private LeaveViews() {
 	}
 
-	record TypeView(UUID id, String code, String nameEn, String nameAr, LeaveCategory category, boolean paid,
+	record TypeView(Long id, String code, String nameEn, String nameAr, LeaveCategory category, boolean paid,
 			boolean tracksBalance, String deductsFrom, DayCountMode dayCountMode, boolean allowHalfDay,
 			Integer maxDaysPerRequest, Integer maxDaysPerYear, Integer maxTimesPerService, Integer minServiceMonths,
 			Gender gender, boolean requiresAttachment, boolean active) {
@@ -40,10 +39,10 @@ final class LeaveViews {
 			BigDecimal available, BigDecimal usedThisYear, Integer maxDaysPerYear) {
 	}
 
-	record RequestView(UUID id, UUID employeeId, String employeeCode, String employeeNameEn, String employeeNameAr,
+	record RequestView(Long id, Long employeeId, String employeeCode, String employeeNameEn, String employeeNameAr,
 			String leaveType, String leaveTypeNameEn, String leaveTypeNameAr, LocalDate startDate, LocalDate endDate,
-			boolean halfDay, BigDecimal days, LeaveRequestStatus status, String reason, UUID requestedBy,
-			UUID decidedBy, Instant decidedAt, String decisionNote, Instant createdAt) {
+			boolean halfDay, BigDecimal days, LeaveRequestStatus status, String reason, Long requestedBy,
+			Long decidedBy, Instant decidedAt, String decisionNote, Instant createdAt) {
 
 		static RequestView of(LeaveRequest request, EmployeeInfo employee) {
 			LeaveType type = request.getLeaveType();
@@ -57,8 +56,8 @@ final class LeaveViews {
 
 	}
 
-	record TransactionView(UUID id, String leaveType, int leaveYear, TransactionKind kind, BigDecimal days,
-			LocalDate effectiveDate, UUID requestId, String note, Instant createdAt) {
+	record TransactionView(Long id, String leaveType, int leaveYear, TransactionKind kind, BigDecimal days,
+			LocalDate effectiveDate, Long requestId, String note, Instant createdAt) {
 	}
 
 	record SettingsView(int firstYearDays, int eligibilityMonths, int standardDays, int seniorDays,

@@ -1,7 +1,6 @@
 package com.hrsaas.billing.internal;
 
 import java.time.Instant;
-import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,7 +20,7 @@ import com.hrsaas.shared.persistence.BaseEntity;
 class Subscription extends BaseEntity {
 
 	@Column(nullable = false, unique = true, updatable = false)
-	private UUID tenantId;
+	private Long tenantId;
 
 	@ManyToOne(fetch = FetchType.EAGER, optional = false)
 	@JoinColumn(name = "plan_id")
@@ -49,7 +48,7 @@ class Subscription extends BaseEntity {
 	protected Subscription() {
 	}
 
-	static Subscription trial(UUID tenantId, Plan plan, Instant start, Instant trialEndsAt) {
+	static Subscription trial(Long tenantId, Plan plan, Instant start, Instant trialEndsAt) {
 		Subscription subscription = new Subscription();
 		subscription.tenantId = tenantId;
 		subscription.plan = plan;
@@ -71,7 +70,7 @@ class Subscription extends BaseEntity {
 		};
 	}
 
-	UUID getTenantId() {
+	Long getTenantId() {
 		return tenantId;
 	}
 

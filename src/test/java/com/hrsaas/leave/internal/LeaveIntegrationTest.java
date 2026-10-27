@@ -51,13 +51,13 @@ class LeaveIntegrationTest {
 
 	private String hr;
 
-	private String managerId;
+	private long managerId;
 
-	private String staffId;
+	private long staffId;
 
-	private String outsiderId;
+	private long outsiderId;
 
-	private String newcomerId;
+	private long newcomerId;
 
 	private String manager;
 
@@ -92,7 +92,7 @@ class LeaveIntegrationTest {
 		assertThat(number(balances, "$[?(@.code=='ANNUAL')].available")).isEqualTo(21);
 		assertThat(JsonPath.<List<String>>read(balances, "$[?(@.code=='CASUAL')].deductsFrom")).containsExactly("ANNUAL");
 
-		String fifty = hire("F1", "MALE", today.minusYears(51).toString(), today.minusYears(2), null);
+		long fifty = hire("F1", "MALE", today.minusYears(51).toString(), today.minusYears(2), null);
 		String hrView = call(get("/api/v1/leave/employees/" + fifty + "/balances"), hr, 200);
 		assertThat(number(hrView, "$[?(@.code=='ANNUAL')].entitledThisYear")).isEqualTo(30);
 	}
@@ -106,7 +106,7 @@ class LeaveIntegrationTest {
 		// Mon..next Mon = 8 days: minus Friday, Saturday and the Wednesday holiday = 5 working days
 		String request = call(post("/api/v1/me/leave/requests"), staff, 201,
 				leave("ANNUAL", monday, monday.plusDays(7)));
-		String id = JsonPath.read(request, "$.id");
+		long id = id(request);
 		assertThat(number(request, "$.days")).isEqualTo(5);
 		assertThat(JsonPath.<String>read(request, "$.status")).isEqualTo("PENDING");
 		assertBalance(staff, 21, 5, 16);
@@ -126,22 +126,21 @@ class LeaveIntegrationTest {
 
 	@Test
 	void approvalIsLimitedToTheManagersTeamAndNeverOnesOwn() throws Exception {
-		String outsiderLeave = JsonPath.read(call(post("/api/v1/leave/requests"), hr, 201,
-				onBehalf(outsiderId, "ANNUAL", monday, monday)), "$.id");
+		long outsiderLeave = id(call(post("/api/v1/leave/requests"), hr, 201,
+				onBehalf(outsiderId, "ANNUAL", monday, monday)));
 		assertError(call(post("/api/v1/leave/requests/" + outsiderLeave + "/approve"), manager, 403, Map.of()),
 				"leave.not-your-team");
 
-		String own = JsonPath.read(call(post("/api/v1/me/leave/requests"), manager, 201, leave("ANNUAL", monday, monday)),
-				"$.id");
+		long own = id(call(post("/api/v1/me/leave/requests"), manager, 201, leave("ANNUAL", monday, monday)));
 		assertError(call(post("/api/v1/leave/requests/" + own + "/approve"), manager, 403, Map.of()),
 				"leave.cannot-decide-own");
 
 		// a plain employee cannot use the approval endpoints at all
 		call(post("/api/v1/leave/requests/" + own + "/approve"), staff, 403, Map.of());
 
-		List<String> teamRequests = JsonPath.read(call(get("/api/v1/leave/requests"), manager, 200),
+		List<Number> teamRequests = JsonPath.read(call(get("/api/v1/leave/requests"), manager, 200),
 				"$.content[*].employeeId");
-		assertThat(teamRequests).doesNotContain(outsiderId, managerId);
+		assertThat(teamRequests).extracting(Number::longValue).doesNotContain(outsiderId, managerId);
 	}
 
 	@Test
@@ -182,8 +181,7 @@ class LeaveIntegrationTest {
 
 	@Test
 	void employeesCanWithdrawPendingRequests() throws Exception {
-		String id = JsonPath.read(call(post("/api/v1/me/leave/requests"), staff, 201, leave("ANNUAL", monday, monday)),
-				"$.id");
+		long id = id(call(post("/api/v1/me/leave/requests"), staff, 201, leave("ANNUAL", monday, monday)));
 		String cancelled = call(post("/api/v1/me/leave/requests/" + id + "/cancel"), staff, 200, Map.of());
 		assertThat(JsonPath.<String>read(cancelled, "$.status")).isEqualTo("CANCELLED");
 		assertBalance(staff, 21, 0, 21);
@@ -216,22 +214,21 @@ class LeaveIntegrationTest {
 		return Map.of("leaveType", type, "startDate", start.toString(), "endDate", end.toString());
 	}
 
-	private static Map<String, Object> onBehalf(String employeeId, String type, LocalDate start, LocalDate end) {
+	private static Map<String, Object> onBehalf(long employeeId, String type, LocalDate start, LocalDate end) {
 		return Map.of("employeeId", employeeId, "leaveType", type, "startDate", start.toString(), "endDate",
 				end.toString());
 	}
 
-	private String hire(String code, String gender, String birthDate, LocalDate hireDate, String managerId)
+	private long hire(String code, String gender, String birthDate, LocalDate hireDate, Long managerId)
 			throws Exception {
-		String manager = managerId == null ? "null" : "\"" + managerId + "\"";
 		String body = """
 				{"code": "%s", "fullNameEn": "Employee %1$s", "fullNameAr": "موظف %1$s", "gender": "%s",
 				 "birthDate": "%s", "hireDate": "%s", "managerId": %s}""".formatted(code, gender, birthDate, hireDate,
-				manager);
-		return JsonPath.read(perform(post("/api/v1/employees"), hr, body, 201), "$.id");
+				managerId);
+		return id(perform(post("/api/v1/employees"), hr, body, 201));
 	}
 
-	private void createUser(String email, String role, String employeeId) throws Exception {
+	private void createUser(String email, String role, long employeeId) throws Exception {
 		call(post("/api/v1/users"), hr, 201, Map.of("email", email, "fullName", email, "password", PASSWORD, "roles",
 				List.of(role), "employeeId", employeeId));
 	}
@@ -265,6 +262,10 @@ class LeaveIntegrationTest {
 
 	private static void assertError(String problem, String code) {
 		assertThat(JsonPath.<String>read(problem, "$.code")).isEqualTo(code);
+	}
+
+	private static long id(String json) {
+		return JsonPath.<Number>read(json, "$.id").longValue();
 	}
 
 	/** A single number; filter paths ({@code $[?(...)]}) return a one-element list. */

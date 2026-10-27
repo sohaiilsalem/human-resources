@@ -29,9 +29,6 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 
-import com.hrsaas.identity.Permission;
-import com.hrsaas.identity.Role;
-
 @Configuration(proxyBeanMethods = false)
 @EnableMethodSecurity
 @EnableConfigurationProperties(JwtProperties.class)
@@ -55,19 +52,20 @@ class SecurityConfig {
 		return http.build();
 	}
 
-	/** {@code roles} claim → {@code ROLE_*} authorities plus the permissions each role grants. */
+	/**
+	 * {@code roles} claim → {@code ROLE_*} authorities, {@code permissions} claim → one authority each. Both are
+	 * resolved from the roles table when the token is issued, so role changes apply from the next refresh.
+	 */
 	private static Collection<GrantedAuthority> authorities(Jwt jwt) {
-		List<String> roles = jwt.getClaimAsStringList(TokenService.ROLES_CLAIM);
 		List<GrantedAuthority> authorities = new ArrayList<>();
-		if (roles == null) {
-			return authorities;
-		}
-		roles.stream().map(Role::valueOf).forEach(role -> {
-			authorities.add(new SimpleGrantedAuthority("ROLE_" + role.name()));
-			role.permissions().stream().map(Permission::authority).map(SimpleGrantedAuthority::new)
-				.forEach(authorities::add);
-		});
+		claim(jwt, TokenService.ROLES_CLAIM).forEach(role -> authorities.add(new SimpleGrantedAuthority("ROLE_" + role)));
+		claim(jwt, TokenService.PERMISSIONS_CLAIM).stream().map(SimpleGrantedAuthority::new).forEach(authorities::add);
 		return authorities;
+	}
+
+	private static List<String> claim(Jwt jwt, String name) {
+		List<String> values = jwt.getClaimAsStringList(name);
+		return values != null ? values : List.of();
 	}
 
 	@Bean

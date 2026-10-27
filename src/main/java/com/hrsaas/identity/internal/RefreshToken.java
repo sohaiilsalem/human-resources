@@ -1,7 +1,6 @@
 package com.hrsaas.identity.internal;
 
 import java.time.Instant;
-import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -15,7 +14,7 @@ import com.hrsaas.shared.persistence.TenantEntity;
 class RefreshToken extends TenantEntity {
 
 	@Column(nullable = false, updatable = false)
-	private UUID userId;
+	private Long userId;
 
 	@Column(nullable = false, unique = true, updatable = false, length = 64)
 	private String tokenHash;
@@ -25,12 +24,12 @@ class RefreshToken extends TenantEntity {
 
 	private Instant revokedAt;
 
-	private UUID replacedBy;
+	private Long replacedBy;
 
 	protected RefreshToken() {
 	}
 
-	RefreshToken(UUID userId, String tokenHash, Instant expiresAt) {
+	RefreshToken(Long userId, String tokenHash, Instant expiresAt) {
 		this.userId = userId;
 		this.tokenHash = tokenHash;
 		this.expiresAt = expiresAt;
@@ -44,12 +43,12 @@ class RefreshToken extends TenantEntity {
 		return !now.isBefore(expiresAt);
 	}
 
-	void revoke(Instant now, UUID replacement) {
+	void revoke(Instant now, Long replacement) {
 		this.revokedAt = now;
 		this.replacedBy = replacement;
 	}
 
-	UUID getUserId() {
+	Long getUserId() {
 		return userId;
 	}
 

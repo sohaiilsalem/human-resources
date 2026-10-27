@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -70,7 +69,7 @@ class CalendarService implements WorkCalendar {
 	}
 
 	@Transactional
-	void deleteHoliday(UUID id) {
+	void deleteHoliday(Long id) {
 		PublicHoliday holiday = holidays.findById(id)
 			.orElseThrow(() -> ApiException.notFound("organization.holiday-not-found"));
 		holidays.delete(holiday);

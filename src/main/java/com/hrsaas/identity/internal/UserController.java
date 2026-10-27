@@ -1,7 +1,6 @@
 package com.hrsaas.identity.internal;
 
 import java.util.List;
-import java.util.UUID;
 
 import jakarta.validation.Valid;
 
@@ -14,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.hrsaas.identity.Role;
 
 @RestController
 @RequestMapping("/api/v1/users")
@@ -38,12 +36,12 @@ class UserController {
 		return UserResponse.of(users.create(request));
 	}
 
-	record UserResponse(UUID id, String email, String fullName, String locale, List<Role> roles, UUID employeeId,
+	record UserResponse(Long id, String email, String fullName, String locale, List<String> roles, Long employeeId,
 			boolean active) {
 
 		static UserResponse of(User user) {
 			return new UserResponse(user.getId(), user.getEmail(), user.getFullName(), user.getLocale(),
-					user.getRoles().stream().sorted().toList(), user.getEmployeeId(), user.isActive());
+					user.getRoleCodes(), user.getEmployeeId(), user.isActive());
 		}
 
 	}

@@ -2,14 +2,13 @@ package com.hrsaas.leave.internal;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import com.hrsaas.leave.LeaveCategory;
 
-interface LeaveTypeRepository extends JpaRepository<LeaveType, UUID> {
+interface LeaveTypeRepository extends JpaRepository<LeaveType, Long> {
 
 	Optional<LeaveType> findByCode(String code);
 

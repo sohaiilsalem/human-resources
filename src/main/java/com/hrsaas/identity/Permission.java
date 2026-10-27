@@ -1,5 +1,8 @@
 package com.hrsaas.identity;
 
+import java.util.Arrays;
+import java.util.Optional;
+
 /** Fine-grained authorities checked with {@code @PreAuthorize("hasAuthority('payroll:run')")}. */
 public enum Permission {
 
@@ -24,6 +27,10 @@ public enum Permission {
 
 	public String authority() {
 		return authority;
+	}
+
+	public static Optional<Permission> fromAuthority(String authority) {
+		return Arrays.stream(values()).filter(p -> p.authority.equals(authority)).findFirst();
 	}
 
 }

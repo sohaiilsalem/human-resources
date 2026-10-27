@@ -3,7 +3,6 @@ package com.hrsaas.shared.persistence;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.UUID;
 
 import javax.sql.DataSource;
 
@@ -15,7 +14,7 @@ import com.hrsaas.shared.tenant.TenantContext;
  * Hands Hibernate pooled connections with {@code app.tenant_id} set, which the row-level security policies read.
  * The setting is reset before a connection goes back to the pool.
  */
-class RlsConnectionProvider implements MultiTenantConnectionProvider<UUID> {
+class RlsConnectionProvider implements MultiTenantConnectionProvider<Long> {
 
 	private final DataSource dataSource;
 
@@ -34,7 +33,7 @@ class RlsConnectionProvider implements MultiTenantConnectionProvider<UUID> {
 	}
 
 	@Override
-	public Connection getConnection(UUID tenantId) throws SQLException {
+	public Connection getConnection(Long tenantId) throws SQLException {
 		Connection connection = dataSource.getConnection();
 		try {
 			bindTenant(connection, tenantId);
@@ -47,7 +46,7 @@ class RlsConnectionProvider implements MultiTenantConnectionProvider<UUID> {
 	}
 
 	@Override
-	public void releaseConnection(UUID tenantId, Connection connection) throws SQLException {
+	public void releaseConnection(Long tenantId, Connection connection) throws SQLException {
 		try (connection) {
 			bindTenant(connection, TenantContext.NO_TENANT);
 		}
@@ -68,7 +67,7 @@ class RlsConnectionProvider implements MultiTenantConnectionProvider<UUID> {
 		return type.cast(this);
 	}
 
-	private static void bindTenant(Connection connection, UUID tenantId) throws SQLException {
+	private static void bindTenant(Connection connection, Long tenantId) throws SQLException {
 		try (PreparedStatement statement = connection.prepareStatement("select set_config('app.tenant_id', ?, false)")) {
 			statement.setString(1, tenantId.toString());
 			statement.execute();

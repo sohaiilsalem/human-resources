@@ -6,7 +6,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,8 +45,8 @@ class TenantIsolationIntegrationTest {
 		String slugB = ApiClient.uniqueSlug("iso-b");
 		api.signUp(slugA, "shared@example.com");
 		api.signUp(slugB, "shared@example.com");
-		UUID tenantA = tenants.findBySlug(slugA).orElseThrow().id();
-		UUID tenantB = tenants.findBySlug(slugB).orElseThrow().id();
+		Long tenantA = tenants.findBySlug(slugA).orElseThrow().id();
+		Long tenantB = tenants.findBySlug(slugB).orElseThrow().id();
 
 		User userA = TenantContext.callAs(tenantA, () -> users.findByEmail("shared@example.com").orElseThrow());
 		User userB = TenantContext.callAs(tenantB, () -> users.findByEmail("shared@example.com").orElseThrow());
@@ -66,22 +65,22 @@ class TenantIsolationIntegrationTest {
 		String slugB = ApiClient.uniqueSlug("rls-b");
 		api.signUp(slugA, "a@example.com");
 		api.signUp(slugB, "b@example.com");
-		UUID tenantA = tenants.findBySlug(slugA).orElseThrow().id();
+		Long tenantA = tenants.findBySlug(slugA).orElseThrow().id();
 
 		assertThat(emailsVisibleTo(null)).isEmpty();
 		assertThat(emailsVisibleTo(tenantA)).containsExactly("a@example.com");
 		assertThat(rolesVisibleTo(tenantA)).containsExactly("OWNER");
 	}
 
-	private List<String> emailsVisibleTo(UUID tenantId) {
+	private List<String> emailsVisibleTo(Long tenantId) {
 		return queryAs(tenantId, "select email from users");
 	}
 
-	private List<String> rolesVisibleTo(UUID tenantId) {
-		return queryAs(tenantId, "select role from user_roles");
+	private List<String> rolesVisibleTo(Long tenantId) {
+		return queryAs(tenantId, "select r.code from user_roles ur join roles r on r.id = ur.role_id");
 	}
 
-	private List<String> queryAs(UUID tenantId, String sql) {
+	private List<String> queryAs(Long tenantId, String sql) {
 		return jdbc.execute((ConnectionCallback<List<String>>) connection -> {
 			try (PreparedStatement set = connection.prepareStatement("select set_config('app.tenant_id', ?, false)")) {
 				set.setString(1, tenantId == null ? "" : tenantId.toString());

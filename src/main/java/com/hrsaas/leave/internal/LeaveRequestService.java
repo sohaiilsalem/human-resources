@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
-import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -59,7 +58,7 @@ class LeaveRequestService {
 		this.clock = clock;
 	}
 
-	LeaveRequest submit(UUID employeeId, LeaveRequestInput input, Actor actor) {
+	LeaveRequest submit(Long employeeId, LeaveRequestInput input, Actor actor) {
 		ledger.lockEmployee(employeeId);
 		EmployeeInfo employee = employees.findById(employeeId)
 			.orElseThrow(() -> ApiException.notFound("employee.not-found"));
@@ -96,7 +95,7 @@ class LeaveRequestService {
 				blankToNull(input.reason()), actor.userId()));
 	}
 
-	LeaveRequest approve(UUID requestId, Actor actor, String note) {
+	LeaveRequest approve(Long requestId, Actor actor, String note) {
 		LeaveRequest request = get(requestId);
 		requirePending(request);
 		authorizeDecision(request, actor);
@@ -117,7 +116,7 @@ class LeaveRequestService {
 		return request;
 	}
 
-	LeaveRequest reject(UUID requestId, Actor actor, String note) {
+	LeaveRequest reject(Long requestId, Actor actor, String note) {
 		LeaveRequest request = get(requestId);
 		requirePending(request);
 		authorizeDecision(request, actor);
@@ -129,7 +128,7 @@ class LeaveRequestService {
 	 * The employee may withdraw a pending request, or an approved one that has not started yet. HR ({@code leave:manage})
 	 * may cancel any pending or approved request; approved days go back to the balance.
 	 */
-	LeaveRequest cancel(UUID requestId, Actor actor, String note) {
+	LeaveRequest cancel(Long requestId, Actor actor, String note) {
 		LeaveRequest request = get(requestId);
 		if (!request.isPending() && !request.isApproved()) {
 			throw ApiException.conflict("leave.not-cancellable");
@@ -155,7 +154,7 @@ class LeaveRequestService {
 	}
 
 	@Transactional(readOnly = true)
-	LeaveRequest getVisible(UUID requestId, Actor actor) {
+	LeaveRequest getVisible(Long requestId, Actor actor) {
 		LeaveRequest request = get(requestId);
 		if (actor.isEmployee(request.getEmployeeId()) || actor.canManage() || isManagerOf(actor, request)) {
 			return request;
@@ -163,7 +162,7 @@ class LeaveRequestService {
 		throw ApiException.notFound("leave.request-not-found");
 	}
 
-	private LeaveRequest get(UUID requestId) {
+	private LeaveRequest get(Long requestId) {
 		return requests.findById(requestId).orElseThrow(() -> ApiException.notFound("leave.request-not-found"));
 	}
 

@@ -9,7 +9,6 @@ import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Optional;
-import java.util.UUID;
 
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
@@ -18,6 +17,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Component;
 
+import com.hrsaas.identity.Permission;
 import com.hrsaas.platform.TenantInfo;
 
 /**
@@ -30,6 +30,8 @@ class TokenService {
 	static final String TENANT_CLAIM = "tid";
 
 	static final String ROLES_CLAIM = "roles";
+
+	static final String PERMISSIONS_CLAIM = "permissions";
 
 	private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -58,7 +60,8 @@ class TokenService {
 			.expiresAt(now.plus(properties.accessTokenTtl()))
 			.claim(TENANT_CLAIM, tenant.id().toString())
 			.claim("tenant", tenant.slug())
-			.claim(ROLES_CLAIM, user.getRoles().stream().map(Enum::name).sorted().toList())
+			.claim(ROLES_CLAIM, user.getRoleCodes())
+			.claim(PERMISSIONS_CLAIM, user.getPermissions().stream().map(Permission::authority).sorted().toList())
 			.build();
 		String accessToken = encoder
 			.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
@@ -74,13 +77,13 @@ class TokenService {
 				refreshToken, properties.refreshTokenTtl().toSeconds()), stored.getId());
 	}
 
-	static Optional<UUID> tenantOf(String refreshToken) {
+	static Optional<Long> tenantOf(String refreshToken) {
 		int dot = refreshToken.indexOf('.');
 		if (dot <= 0) {
 			return Optional.empty();
 		}
 		try {
-			return Optional.of(UUID.fromString(refreshToken.substring(0, dot)));
+			return Optional.of(Long.valueOf(refreshToken.substring(0, dot)));
 		}
 		catch (IllegalArgumentException ex) {
 			return Optional.empty();
@@ -97,7 +100,7 @@ class TokenService {
 		}
 	}
 
-	record IssuedTokens(TokenResponse response, UUID refreshTokenId) {
+	record IssuedTokens(TokenResponse response, Long refreshTokenId) {
 	}
 
 }

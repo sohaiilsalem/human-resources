@@ -1,7 +1,6 @@
 package com.hrsaas.shared.persistence;
 
 import java.util.Optional;
-import java.util.UUID;
 
 import javax.sql.DataSource;
 
@@ -28,11 +27,11 @@ class PersistenceConfig {
 	}
 
 	@Bean
-	AuditorAware<UUID> auditor() {
+	AuditorAware<Long> auditor() {
 		return () -> {
 			Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 			if (authentication != null && authentication.getPrincipal() instanceof Jwt jwt) {
-				return Optional.of(UUID.fromString(jwt.getSubject()));
+				return Optional.of(Long.valueOf(jwt.getSubject()));
 			}
 			return Optional.empty();
 		};

@@ -2,7 +2,6 @@ package com.hrsaas.leave.internal;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -18,10 +17,10 @@ import com.hrsaas.shared.persistence.TenantEntity;
 class LeaveTransaction extends TenantEntity {
 
 	@Column(nullable = false, updatable = false)
-	private UUID employeeId;
+	private Long employeeId;
 
 	@Column(nullable = false, updatable = false)
-	private UUID leaveTypeId;
+	private Long leaveTypeId;
 
 	@Column(nullable = false, updatable = false)
 	private int leaveYear;
@@ -37,7 +36,7 @@ class LeaveTransaction extends TenantEntity {
 	private LocalDate effectiveDate;
 
 	@Column(updatable = false)
-	private UUID requestId;
+	private Long requestId;
 
 	@Column(length = 500)
 	private String note;
@@ -45,8 +44,8 @@ class LeaveTransaction extends TenantEntity {
 	protected LeaveTransaction() {
 	}
 
-	LeaveTransaction(UUID employeeId, UUID leaveTypeId, int leaveYear, TransactionKind kind, BigDecimal days,
-			LocalDate effectiveDate, UUID requestId, String note) {
+	LeaveTransaction(Long employeeId, Long leaveTypeId, int leaveYear, TransactionKind kind, BigDecimal days,
+			LocalDate effectiveDate, Long requestId, String note) {
 		this.employeeId = employeeId;
 		this.leaveTypeId = leaveTypeId;
 		this.leaveYear = leaveYear;
@@ -63,7 +62,7 @@ class LeaveTransaction extends TenantEntity {
 		this.effectiveDate = effectiveDate;
 	}
 
-	UUID getLeaveTypeId() {
+	Long getLeaveTypeId() {
 		return leaveTypeId;
 	}
 
@@ -83,7 +82,7 @@ class LeaveTransaction extends TenantEntity {
 		return effectiveDate;
 	}
 
-	UUID getRequestId() {
+	Long getRequestId() {
 		return requestId;
 	}
 

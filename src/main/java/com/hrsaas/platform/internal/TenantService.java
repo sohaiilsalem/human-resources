@@ -2,7 +2,6 @@ package com.hrsaas.platform.internal;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
@@ -34,13 +33,19 @@ class TenantService implements TenantDirectory {
 	}
 
 	@Override
-	public Optional<TenantInfo> findById(UUID id) {
+	public Optional<TenantInfo> findById(Long id) {
 		return tenants.findById(id).map(Tenant::toInfo);
 	}
 
 	@Override
 	public List<TenantInfo> findAllActive() {
 		return tenants.findByStatus(TenantStatus.ACTIVE).stream().map(Tenant::toInfo).toList();
+	}
+
+	@Override
+	@Transactional
+	public long reserveId() {
+		return tenants.reserveId();
 	}
 
 	@Override

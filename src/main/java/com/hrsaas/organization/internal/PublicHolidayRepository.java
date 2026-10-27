@@ -2,12 +2,11 @@ package com.hrsaas.organization.internal;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 
-interface PublicHolidayRepository extends JpaRepository<PublicHoliday, UUID> {
+interface PublicHolidayRepository extends JpaRepository<PublicHoliday, Long> {
 
 	@Query("""
 			select h from PublicHoliday h

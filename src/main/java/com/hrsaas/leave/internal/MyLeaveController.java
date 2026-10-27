@@ -1,7 +1,6 @@
 package com.hrsaas.leave.internal;
 
 import java.util.List;
-import java.util.UUID;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
@@ -65,11 +64,11 @@ class MyLeaveController {
 	}
 
 	@PostMapping("/requests/{id}/cancel")
-	RequestView cancel(JwtAuthenticationToken auth, @PathVariable UUID id, @Valid @RequestBody(required = false) Note note) {
+	RequestView cancel(JwtAuthenticationToken auth, @PathVariable Long id, @Valid @RequestBody(required = false) Note note) {
 		return queries.view(requests.cancel(id, actors.resolve(auth), note != null ? note.note() : null));
 	}
 
-	private static UUID employeeId(Actor actor) {
+	private static Long employeeId(Actor actor) {
 		if (actor.employeeId() == null) {
 			throw ApiException.forbidden("leave.no-employee-profile");
 		}

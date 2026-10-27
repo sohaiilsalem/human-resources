@@ -5,17 +5,14 @@ import java.time.Instant;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import com.hrsaas.identity.Role;
 import com.hrsaas.platform.RegisterTenant;
 import com.hrsaas.platform.TenantDirectory;
 import com.hrsaas.platform.TenantInfo;
-import com.hrsaas.shared.persistence.Ids;
 import com.hrsaas.shared.tenant.TenantContext;
 import com.hrsaas.shared.web.ApiException;
 
@@ -36,6 +33,8 @@ class AuthService {
 
 	private final RefreshTokenRepository refreshTokens;
 
+	private final RoleService roles;
+
 	private final TokenService tokens;
 
 	private final PasswordEncoder passwordEncoder;
@@ -47,11 +46,12 @@ class AuthService {
 	/** Compared against when the user does not exist, so response time does not reveal valid emails. */
 	private final String dummyHash;
 
-	AuthService(TenantDirectory tenants, UserRepository users, RefreshTokenRepository refreshTokens,
+	AuthService(TenantDirectory tenants, UserRepository users, RefreshTokenRepository refreshTokens, RoleService roles,
 			TokenService tokens, PasswordEncoder passwordEncoder, TransactionTemplate tx, Clock clock) {
 		this.tenants = tenants;
 		this.users = users;
 		this.refreshTokens = refreshTokens;
+		this.roles = roles;
 		this.tokens = tokens;
 		this.passwordEncoder = passwordEncoder;
 		this.tx = tx;
@@ -60,13 +60,14 @@ class AuthService {
 	}
 
 	TokenResponse signUp(AuthRequests.SignUp request) {
-		UUID tenantId = Ids.newId();
+		Long tenantId = tenants.reserveId();
 		String locale = request.locale() != null ? request.locale() : "en";
 		return TenantContext.callAs(tenantId, () -> tx.execute(status -> {
 			TenantInfo tenant = tenants.register(new RegisterTenant(tenantId, normalize(request.tenant()),
 					request.companyName().strip(), locale));
+			Role ownerRole = roles.seedDefaults();
 			User owner = users.save(new User(normalize(request.email()), request.fullName().strip(),
-					passwordEncoder.encode(request.password()), locale, Set.of(Role.OWNER), null));
+					passwordEncoder.encode(request.password()), locale, Set.of(ownerRole), null));
 			return tokens.issue(owner, tenant).response();
 		}));
 	}

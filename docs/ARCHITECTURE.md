@@ -86,7 +86,7 @@ Rules (enforced by `ModularityTests`):
 **Platform tables** (no `tenant_id`, no RLS): `tenants`, `plans`, `plan_features`, `subscriptions`,
 `invoices`, `payments`, `statutory_parameters`, `platform_admins`.
 
-**Tenant tables**: everything else. Each has `tenant_id uuid not null` and is the first column of every
+**Tenant tables**: everything else. Each has `tenant_id bigint not null` and is the first column of every
 composite index / unique constraint (e.g. `unique (tenant_id, email)`).
 
 Enforcement layers:
@@ -94,10 +94,10 @@ Enforcement layers:
 1. **Request → TenantContext.** Authenticated requests: tenant comes from the JWT `tid` claim (never from a
    header). Unauthenticated requests that need a tenant (login, password reset) pass the company code
    (`tenant` slug) in the body, resolved against `tenants`.
-2. **Hibernate `@TenantId`.** Every tenant entity has a `@TenantId UUID tenantId` field. Hibernate adds the
+2. **Hibernate `@TenantId`.** Every tenant entity has a `@TenantId Long tenantId` field. Hibernate adds the
    tenant predicate to every query and fills the column on insert, from `CurrentTenantIdentifierResolver`.
 3. **PostgreSQL RLS.** Each tenant table has
-   `USING (tenant_id = current_setting('app.tenant_id')::uuid)` with `FORCE ROW LEVEL SECURITY`. A Hibernate
+   `USING (tenant_id = current_setting('app.tenant_id')::bigint)` with `FORCE ROW LEVEL SECURITY`. A Hibernate
    `MultiTenantConnectionProvider` runs `set_config('app.tenant_id', …)` when a session takes a connection and
    resets it on release. The application connects as `hr_app` (not table owner, not superuser), so even a raw SQL
    bug cannot read another tenant's rows. Flyway runs as the owner role.
@@ -113,12 +113,16 @@ Scaling path: if a large customer needs isolation, move them to a dedicated data
 
 * Login: `POST /api/v1/auth/login {tenant, email, password}` → access token (JWT, 15 min) + refresh
   token (opaque, 30 days, stored as SHA-256 hash, rotated on every use, revocable).
-* JWT claims: `sub` (user id), `tid` (tenant id), `tenant` (slug), `roles`. Signed with a key from config/secret store.
+* JWT claims: `sub` (user id), `tid` (tenant id), `tenant` (slug), `roles`, `permissions`. Signed with a key from config/secret store.
   The plan is not a claim: plans change mid-token, so `FeatureGate` reads the subscription.
 * Refresh token format `<tenantId>.<random>`: the tenant is bound before the token row is read under RLS.
   Replaying a rotated token revokes all of that user's refresh tokens.
-* Authorization: roles (`OWNER`, `HR_ADMIN`, `PAYROLL_ADMIN`, `MANAGER`, `EMPLOYEE`) mapped to fine-grained
-  permissions (`payroll:run`, `leave:approve`, …); method security with `@PreAuthorize`.
+* Authorization: roles are per-tenant rows (`roles`, `role_permissions`, linked to users by `user_roles`), each a
+  named set of fine-grained permissions (`payroll:run`, `leave:approve`, …) defined in code; method security with
+  `@PreAuthorize`. Every company starts with `OWNER`, `HR_ADMIN`, `PAYROLL_ADMIN`, `MANAGER`, `EMPLOYEE` and can
+  add its own via `/api/v1/roles`. `OWNER` always holds every permission and is locked; nobody can create, change
+  or grant a role with permissions they do not hold. Permissions are resolved into the token at issue time, so
+  role changes apply from the next refresh.
   Managers are scoped to their reporting line (data-level check in services).
 * Feature gating: `@RequiresFeature(Feature.PAYROLL)` → 402/403 when the plan doesn't include it or the
   subscription is not active.
@@ -279,7 +283,7 @@ employee submits (or HR on behalf) ─▶ PENDING ─▶ manager (direct reports
 
 ## 9. Database design
 
-Conventions: `uuid` primary keys; `tenant_id` first in indexes; `created_at`, `created_by`, `updated_at`,
+Conventions: `bigint` identity primary keys (1, 2, 3… per table); `tenant_id` first in indexes; `created_at`, `created_by`, `updated_at`,
 `updated_by`, `version` on every table; soft delete only where legally needed (employees are *terminated*, never
 deleted); bilingual names as `name_en` / `name_ar`; money `numeric(14,2)`; dates as `date`, instants as
 `timestamptz`, local times interpreted in the tenant's time zone (default `Africa/Cairo`).
@@ -343,7 +347,7 @@ which makes accrual corrections and audits trivial.
 
 ## 10. API conventions
 
-* `/api/v1/{module}/{resource}`; plural nouns; UUIDs in paths.
+* `/api/v1/{module}/{resource}`; plural nouns; numeric ids in paths.
 * Pagination `?page=&size=&sort=`; filtering via query params.
 * Errors: `application/problem+json` with `code`, localized `detail`, and field `errors[]`.
 * `Accept-Language: ar|en` for messages and generated documents.

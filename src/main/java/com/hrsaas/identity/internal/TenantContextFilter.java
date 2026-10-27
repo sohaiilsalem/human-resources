@@ -1,7 +1,6 @@
 package com.hrsaas.identity.internal;
 
 import java.io.IOException;
-import java.util.UUID;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -27,7 +26,7 @@ class TenantContextFilter extends OncePerRequestFilter {
 			chain.doFilter(request, response);
 			return;
 		}
-		UUID tenantId = UUID.fromString(token.getToken().getClaimAsString(TokenService.TENANT_CLAIM));
+		Long tenantId = Long.valueOf(token.getToken().getClaimAsString(TokenService.TENANT_CLAIM));
 		MDC.put("tenantId", tenantId.toString());
 		try {
 			TenantContext.callAs(tenantId, () -> {
