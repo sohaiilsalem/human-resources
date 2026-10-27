@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.hrsaas.employee.EmployeeDirectory;
 import com.hrsaas.leave.internal.LeaveViews.SettingsView;
 import com.hrsaas.shared.web.ApiException;
+import com.hrsaas.workflow.Approvals;
 
 /** Leave types, entitlement settings and manual balance adjustments ({@code leave:manage}). */
 @Service
@@ -25,13 +26,16 @@ class LeaveAdminService {
 
 	private final TenantToday today;
 
+	private final Approvals approvals;
+
 	LeaveAdminService(LeaveTypeRepository types, LeaveSettingsRepository settings, LeaveTransactionRepository ledger,
-			EmployeeDirectory employees, TenantToday today) {
+			EmployeeDirectory employees, TenantToday today, Approvals approvals) {
 		this.types = types;
 		this.settings = settings;
 		this.ledger = ledger;
 		this.employees = employees;
 		this.today = today;
+		this.approvals = approvals;
 	}
 
 	@Transactional(readOnly = true)
@@ -43,6 +47,7 @@ class LeaveAdminService {
 		if (types.existsByCode(request.code())) {
 			throw ApiException.conflict("leave.type-code-taken", request.code());
 		}
+		checkWorkflow(request);
 		return types.save(new LeaveType(request, deductsFrom(request, null)));
 	}
 
@@ -52,6 +57,7 @@ class LeaveAdminService {
 		if (!type.getCode().equals(request.code()) || type.getCategory() != request.category()) {
 			throw ApiException.unprocessable("leave.type-immutable-fields");
 		}
+		checkWorkflow(request);
 		type.apply(request, deductsFrom(request, type));
 		return type;
 	}
@@ -82,6 +88,13 @@ class LeaveAdminService {
 		ledger.lockEmployee(employeeId);
 		return ledger.save(new LeaveTransaction(employeeId, type.getId(), today.get().getYear(),
 				TransactionKind.ADJUSTMENT, days, today.get(), null, note.strip()));
+	}
+
+	private void checkWorkflow(LeaveTypeRequest request) {
+		String workflow = request.workflowCode();
+		if (workflow != null && !workflow.isBlank() && !approvals.workflowExists(workflow.strip())) {
+			throw ApiException.unprocessable("workflow.not-found", workflow);
+		}
 	}
 
 	private LeaveType deductsFrom(LeaveTypeRequest request, LeaveType self) {

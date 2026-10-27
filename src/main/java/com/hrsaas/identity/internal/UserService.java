@@ -1,9 +1,13 @@
 package com.hrsaas.identity.internal;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -16,6 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.hrsaas.employee.EmployeeDirectory;
+import com.hrsaas.identity.Permission;
+import com.hrsaas.identity.RoleInfo;
 import com.hrsaas.identity.UserAccounts;
 import com.hrsaas.shared.web.ApiException;
 
@@ -42,6 +48,49 @@ class UserService implements UserAccounts {
 	@Override
 	public Optional<Long> employeeIdOf(Long userId) {
 		return users.findById(userId).map(User::getEmployeeId);
+	}
+
+	@Override
+	public Optional<Long> activeUserIdOfEmployee(Long employeeId) {
+		return users.findByEmployeeId(employeeId).filter(User::isActive).map(User::getId);
+	}
+
+	@Override
+	public boolean isActive(Long userId) {
+		return users.findById(userId).filter(User::isActive).isPresent();
+	}
+
+	@Override
+	public Set<String> roleCodesOf(Long userId) {
+		return users.findById(userId).filter(User::isActive).map(user -> Set.copyOf(user.getRoleCodes())).orElse(Set.of());
+	}
+
+	@Override
+	public Set<Permission> permissionsOf(Long userId) {
+		return users.findById(userId).filter(User::isActive).map(User::getPermissions).orElse(Set.of());
+	}
+
+	@Override
+	public List<Long> activeUserIdsWithRole(String roleCode) {
+		return users.findActiveIdsWithRole(roleCode);
+	}
+
+	@Override
+	public Map<Long, String> fullNamesOf(Collection<Long> userIds) {
+		return users.findAllById(userIds).stream().collect(Collectors.toMap(User::getId, User::getFullName));
+	}
+
+	@Override
+	public Optional<RoleInfo> findRole(String code) {
+		return findRoles(List.of(code)).values().stream().findFirst();
+	}
+
+	@Override
+	public Map<String, RoleInfo> findRoles(Collection<String> codes) {
+		return roles.findByCodes(codes)
+			.stream()
+			.map(role -> new RoleInfo(role.getCode(), role.getNameEn(), role.getNameAr()))
+			.collect(Collectors.toMap(RoleInfo::code, Function.identity()));
 	}
 
 	List<User> list() {

@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import com.hrsaas.employee.EmployeeInfo;
 import com.hrsaas.employee.Gender;
 import com.hrsaas.leave.LeaveCategory;
+import com.hrsaas.workflow.ApprovalView;
 
 /** API response shapes. */
 final class LeaveViews {
@@ -17,7 +18,7 @@ final class LeaveViews {
 	record TypeView(Long id, String code, String nameEn, String nameAr, LeaveCategory category, boolean paid,
 			boolean tracksBalance, String deductsFrom, DayCountMode dayCountMode, boolean allowHalfDay,
 			Integer maxDaysPerRequest, Integer maxDaysPerYear, Integer maxTimesPerService, Integer minServiceMonths,
-			Gender gender, boolean requiresAttachment, boolean active) {
+			Gender gender, boolean requiresAttachment, boolean active, String workflowCode) {
 
 		static TypeView of(LeaveType type) {
 			return new TypeView(type.getId(), type.getCode(), type.getNameEn(), type.getNameAr(), type.getCategory(),
@@ -25,7 +26,7 @@ final class LeaveViews {
 					type.getDeductsFrom() != null ? type.getDeductsFrom().getCode() : null, type.getDayCountMode(),
 					type.isAllowHalfDay(), type.getMaxDaysPerRequest(), type.getMaxDaysPerYear(),
 					type.getMaxTimesPerService(), type.getMinServiceMonths(), type.getGender(),
-					type.isRequiresAttachment(), type.isActive());
+					type.isRequiresAttachment(), type.isActive(), type.getWorkflowCode());
 		}
 
 	}
@@ -42,16 +43,17 @@ final class LeaveViews {
 	record RequestView(Long id, Long employeeId, String employeeCode, String employeeNameEn, String employeeNameAr,
 			String leaveType, String leaveTypeNameEn, String leaveTypeNameAr, LocalDate startDate, LocalDate endDate,
 			boolean halfDay, BigDecimal days, LeaveRequestStatus status, String reason, Long requestedBy,
-			Long decidedBy, Instant decidedAt, String decisionNote, Instant createdAt) {
+			Long decidedBy, Instant decidedAt, String decisionNote, Instant createdAt, ApprovalView approval) {
 
-		static RequestView of(LeaveRequest request, EmployeeInfo employee) {
+		/** {@code approval} (the step-by-step timeline) is filled in for a single request, not in lists. */
+		static RequestView of(LeaveRequest request, EmployeeInfo employee, ApprovalView approval) {
 			LeaveType type = request.getLeaveType();
 			return new RequestView(request.getId(), request.getEmployeeId(), employee != null ? employee.code() : null,
 					employee != null ? employee.fullNameEn() : null, employee != null ? employee.fullNameAr() : null,
 					type.getCode(), type.getNameEn(), type.getNameAr(), request.getStartDate(), request.getEndDate(),
 					request.isHalfDay(), request.getDays(), request.getStatus(), request.getReason(),
 					request.getRequestedBy(), request.getDecidedBy(), request.getDecidedAt(),
-					request.getDecisionNote(), request.getCreatedAt());
+					request.getDecisionNote(), request.getCreatedAt(), approval);
 		}
 
 	}

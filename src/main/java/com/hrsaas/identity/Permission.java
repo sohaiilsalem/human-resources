@@ -17,6 +17,10 @@ public enum Permission {
 	LEAVE_APPROVE("leave:approve"),
 	PAYROLL_READ("payroll:read"),
 	PAYROLL_RUN("payroll:run"),
+	/** Configure request types; see, file and cancel any employee request. */
+	REQUEST_MANAGE("request:manage"),
+	/** Configure approval workflows; reassign or override approval steps (always audited). */
+	WORKFLOW_MANAGE("workflow:manage"),
 	SELF_SERVICE("self:service");
 
 	private final String authority;

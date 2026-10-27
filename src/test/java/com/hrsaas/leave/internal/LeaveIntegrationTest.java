@@ -128,12 +128,13 @@ class LeaveIntegrationTest {
 	void approvalIsLimitedToTheManagersTeamAndNeverOnesOwn() throws Exception {
 		long outsiderLeave = id(call(post("/api/v1/leave/requests"), hr, 201,
 				onBehalf(outsiderId, "ANNUAL", monday, monday)));
+		// the outsider has no manager, so the default workflow escalated the step to HR / the owner
 		assertError(call(post("/api/v1/leave/requests/" + outsiderLeave + "/approve"), manager, 403, Map.of()),
-				"leave.not-your-team");
+				"approval.not-eligible");
 
 		long own = id(call(post("/api/v1/me/leave/requests"), manager, 201, leave("ANNUAL", monday, monday)));
 		assertError(call(post("/api/v1/leave/requests/" + own + "/approve"), manager, 403, Map.of()),
-				"leave.cannot-decide-own");
+				"approval.cannot-decide-own");
 
 		// a plain employee cannot use the approval endpoints at all
 		call(post("/api/v1/leave/requests/" + own + "/approve"), staff, 403, Map.of());

@@ -19,6 +19,7 @@ import com.hrsaas.leave.internal.LeaveViews.BalanceView;
 import com.hrsaas.leave.internal.LeaveViews.RequestView;
 import com.hrsaas.leave.internal.LeaveViews.TransactionView;
 import com.hrsaas.shared.web.ApiException;
+import com.hrsaas.workflow.Approvals;
 
 /** Balances, request lists and ledger history. Balances first bring the year's entitlement up to date. */
 @Service
@@ -37,14 +38,17 @@ class LeaveQueryService {
 
 	private final TenantToday today;
 
+	private final Approvals approvals;
+
 	LeaveQueryService(LeaveTypeRepository types, LeaveRequestRepository requests, LeaveTransactionRepository ledger,
-			EntitlementService entitlements, EmployeeDirectory employees, TenantToday today) {
+			EntitlementService entitlements, EmployeeDirectory employees, TenantToday today, Approvals approvals) {
 		this.types = types;
 		this.requests = requests;
 		this.ledger = ledger;
 		this.entitlements = entitlements;
 		this.employees = employees;
 		this.today = today;
+		this.approvals = approvals;
 	}
 
 	List<BalanceView> balances(Long employeeId) {
@@ -104,7 +108,8 @@ class LeaveQueryService {
 
 	@Transactional(readOnly = true)
 	RequestView view(LeaveRequest request) {
-		return RequestView.of(request, employees.findById(request.getEmployeeId()).orElse(null));
+		return RequestView.of(request, employees.findById(request.getEmployeeId()).orElse(null),
+				approvals.find(LeaveRequestService.SUBJECT, request.getId()).orElse(null));
 	}
 
 	@Transactional(readOnly = true)
@@ -134,7 +139,7 @@ class LeaveQueryService {
 	private Page<RequestView> withEmployees(Page<LeaveRequest> page) {
 		Map<Long, EmployeeInfo> byId = employees
 			.findAllById(page.getContent().stream().map(LeaveRequest::getEmployeeId).collect(Collectors.toSet()));
-		return page.map(request -> RequestView.of(request, byId.get(request.getEmployeeId())));
+		return page.map(request -> RequestView.of(request, byId.get(request.getEmployeeId()), null));
 	}
 
 }

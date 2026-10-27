@@ -3,6 +3,7 @@ package com.hrsaas.leave.internal;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.List;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,6 +36,8 @@ interface LeaveRequestRepository extends JpaRepository<LeaveRequest, Long> {
 			Collection<LeaveRequestStatus> statuses);
 
 	Page<LeaveRequest> findByEmployeeId(Long employeeId, Pageable pageable);
+
+	List<LeaveRequest> findByStatus(LeaveRequestStatus status);
 
 	@Query("""
 			select r from LeaveRequest r

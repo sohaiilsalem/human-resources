@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "hr-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--dir", "/Users/sosa888100751/Apps/Projects/hr-saas-frontend", "dev:web"],
+      "port": 5173
+    }
+  ]
+}

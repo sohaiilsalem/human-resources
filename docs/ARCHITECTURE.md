@@ -65,7 +65,8 @@ com.hrsaas
 ├── compliance      Egyptian statutory engine: effective-dated parameters
 │                   (insurance %, wage caps, tax brackets, minimum wage),
 │                   calculators, official forms (Form 1/2/6), ETA reports
-├── workflow        generic approval chains (leave, overtime, loans, corrections)
+├── workflow        configurable approval chains for leave and employee requests (built, V7)
+├── request         configurable employee requests: permissions, WFH, missions, loans, … (built, V7)
 ├── notification    email / SMS / push / in-app, templated (AR/EN)
 └── reporting       read models, exports, dashboards
 ```
@@ -276,8 +277,9 @@ employee submits (or HR on behalf) ─▶ PENDING ─▶ manager (direct reports
   `ADJUSTMENT` by HR (opening balances, carried-over days). Unused days carry over without limit for now.
 * **Checks** on submit: active employee, hire date, gender, minimum service, per-request / per-year / per-service
   limits, overlaps, available balance (balance − pending). Balance changes take a per-employee advisory lock.
-* Approval: never one's own; HR (`leave:manage`) any request, a manager (`leave:approve`) only direct reports'.
-  Multi-level chains come with the `workflow` module.
+* Approval: by the leave type's approval workflow (`leave_types.workflow_code`, default workflow when null):
+  annual and casual leave → direct manager; sick, maternity, Hajj and unpaid → direct manager, then HR. Never one's
+  own. See [WORKFLOWS.md](WORKFLOWS.md).
 
 ---
 
@@ -357,6 +359,10 @@ which makes accrual corrections and audits trivial.
 ---
 
 ## 11. Deployment & operations
+
+Day-to-day details: [DEVELOPMENT.md](DEVELOPMENT.md) (services, Docker, config, commands),
+[DATABASE.md](DATABASE.md) (Flyway, roles, RLS, debugging) and [WORKFLOWS.md](WORKFLOWS.md) (approval workflows and
+employee requests).
 
 * Dev: `docker compose up -d` (Postgres; later MinIO, Mailpit) + `./mvnw spring-boot:run`. Compose creates the owner
   role `hr_owner` (Flyway) and the application role `hr_app` (`docker/postgres/init`).

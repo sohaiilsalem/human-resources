@@ -1,7 +1,11 @@
 # Local development database: docker compose up -d
+# The container and volume names are fixed so `docker compose` and plain `docker` commands
+# (docker exec hrsaas-postgres ...) refer to the same database. See docs/DATABASE.md.
 services:
   postgres:
     image: postgres:17-alpine
+    container_name: hrsaas-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: hrsaas
       POSTGRES_USER: hr_owner
@@ -14,3 +18,4 @@ services:
 
 volumes:
   postgres-data:
+    name: hrsaas-postgres-data

@@ -66,6 +66,10 @@ class LeaveType extends TenantEntity {
 	@Column(nullable = false)
 	private boolean active;
 
+	/** Approval workflow; null for the company's default. */
+	@Column(length = 30)
+	private String workflowCode;
+
 	protected LeaveType() {
 	}
 
@@ -90,6 +94,10 @@ class LeaveType extends TenantEntity {
 		this.gender = request.gender();
 		this.requiresAttachment = request.requiresAttachment();
 		this.active = request.active();
+		// omitted keeps the current workflow, so older clients don't reset it; blank means the company default
+		if (request.workflowCode() != null) {
+			this.workflowCode = request.workflowCode().isBlank() ? null : request.workflowCode().strip();
+		}
 	}
 
 	/** The type whose ledger requests of this type draw from, or {@code null} if no balance is kept. */
@@ -166,6 +174,10 @@ class LeaveType extends TenantEntity {
 
 	boolean isActive() {
 		return active;
+	}
+
+	String getWorkflowCode() {
+		return workflowCode;
 	}
 
 }

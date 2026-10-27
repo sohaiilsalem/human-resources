@@ -1,0 +1,1809 @@
+{
+  "info": {
+    "name": "HR SaaS – Employees API",
+    "description": "Covers every endpoint in `EmployeeController` (`/api/v1/employees`): list, get, hire, update, terminate.\n\n**Run the whole collection in order** (Collection Runner or `newman run`). The *Setup* folder signs up a fresh tenant per run and stores tokens and IDs in collection variables, so later requests depend on it.\n\nPrerequisites: `docker compose up -d` and the app running on `{{baseUrl}}` (default http://localhost:8080).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Random valid 14-digit Egyptian national ID for request bodies.",
+          "pm.variables.set(\"nationalId\", String(Math.floor(1e13 + Math.random() * 9e13)));"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "password",
+      "value": "Passw0rd!Postman"
+    },
+    {
+      "key": "tenant",
+      "value": ""
+    },
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "ownerEmail",
+      "value": ""
+    },
+    {
+      "key": "readerEmail",
+      "value": ""
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "readerToken",
+      "value": ""
+    },
+    {
+      "key": "managerCode",
+      "value": ""
+    },
+    {
+      "key": "employeeCode",
+      "value": ""
+    },
+    {
+      "key": "managerId",
+      "value": ""
+    },
+    {
+      "key": "employeeId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Setup",
+      "item": [
+        {
+          "name": "Sign up tenant (owner)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Fresh tenant per run so the collection is repeatable against the same database.",
+                  "const run = Date.now().toString(36);",
+                  "pm.collectionVariables.set(\"runId\", run);",
+                  "pm.collectionVariables.set(\"tenant\", \"pm-\" + run);",
+                  "pm.collectionVariables.set(\"ownerEmail\", \"owner+\" + run + \"@example.test\");",
+                  "pm.collectionVariables.set(\"readerEmail\", \"reader+\" + run + \"@example.test\");",
+                  "pm.collectionVariables.set(\"managerCode\", \"MGR-\" + run.toUpperCase());",
+                  "pm.collectionVariables.set(\"employeeCode\", \"EMP-\" + run.toUpperCase());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "",
+                  "const t = pm.response.json();",
+                  "pm.test(\"Returns tokens\", () => {",
+                  "    pm.expect(t.accessToken).to.be.a(\"string\").and.not.empty;",
+                  "    pm.expect(t.tokenType).to.eql(\"Bearer\");",
+                  "});",
+                  "pm.collectionVariables.set(\"accessToken\", t.accessToken);",
+                  "pm.collectionVariables.set(\"refreshToken\", t.refreshToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/signup",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "signup"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"companyName\": \"Postman Test Co\",\n  \"tenant\": \"{{tenant}}\",\n  \"fullName\": \"Postman Owner\",\n  \"email\": \"{{ownerEmail}}\",\n  \"password\": \"{{password}}\",\n  \"locale\": \"en\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "description": "Creates a new tenant on the PRO trial (includes CORE_HR) with an OWNER account, which has employee:read and employee:write."
+          }
+        },
+        {
+          "name": "Create read-only user (MANAGER role)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{readerEmail}}\",\n  \"fullName\": \"Read Only\",\n  \"password\": \"{{password}}\",\n  \"roles\": [\n    \"MANAGER\"\n  ],\n  \"locale\": \"en\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "MANAGER has employee:read but not employee:write; used for the 403 checks."
+          }
+        },
+        {
+          "name": "Login as read-only user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.collectionVariables.set(\"readerToken\", pm.response.json().accessToken);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tenant\": \"{{tenant}}\",\n  \"email\": \"{{readerEmail}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Hire  – POST /employees",
+      "item": [
+        {
+          "name": "Hire manager",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Body has the EmployeeInfo shape\", () => {",
+                  "    const e = pm.response.json();",
+                  "    [\"id\", \"code\", \"fullNameEn\", \"fullNameAr\", \"gender\", \"birthDate\", \"hireDate\", \"status\",",
+                  "     \"terminationDate\", \"managerId\", \"disability\"].forEach(k => pm.expect(e).to.have.property(k));",
+                  "});",
+                  "",
+                  "const e = pm.response.json();",
+                  "pm.test(\"Employee is ACTIVE with no manager\", () => {",
+                  "    pm.expect(e.status).to.eql(\"ACTIVE\");",
+                  "    pm.expect(e.managerId).to.be.null;",
+                  "    pm.expect(e.code).to.eql(pm.collectionVariables.get(\"managerCode\"));",
+                  "});",
+                  "pm.collectionVariables.set(\"managerId\", e.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{managerCode}}\",\n  \"fullNameEn\": \"Mona Hassan\",\n  \"fullNameAr\": \"منى حسن\",\n  \"nationalId\": \"{{nationalId}}\",\n  \"gender\": \"FEMALE\",\n  \"birthDate\": \"1985-03-14\",\n  \"hireDate\": \"2020-01-05\",\n  \"managerId\": null,\n  \"disability\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Hire employee reporting to manager",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 201\", () => pm.response.to.have.status(201));",
+                  "pm.test(\"Body has the EmployeeInfo shape\", () => {",
+                  "    const e = pm.response.json();",
+                  "    [\"id\", \"code\", \"fullNameEn\", \"fullNameAr\", \"gender\", \"birthDate\", \"hireDate\", \"status\",",
+                  "     \"terminationDate\", \"managerId\", \"disability\"].forEach(k => pm.expect(e).to.have.property(k));",
+                  "});",
+                  "",
+                  "const e = pm.response.json();",
+                  "pm.test(\"Manager and fields are stored\", () => {",
+                  "    pm.expect(e.managerId).to.eql(Number(pm.collectionVariables.get(\"managerId\")));",
+                  "    pm.expect(e.gender).to.eql(\"MALE\");",
+                  "    pm.expect(e.hireDate).to.eql(\"2024-06-01\");",
+                  "    pm.expect(e.status).to.eql(\"ACTIVE\");",
+                  "    pm.expect(e.terminationDate).to.be.null;",
+                  "});",
+                  "pm.collectionVariables.set(\"employeeId\", e.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{employeeCode}}\",\n  \"fullNameEn\": \"Omar Adel\",\n  \"fullNameAr\": \"عمر عادل\",\n  \"nationalId\": \"{{nationalId}}\",\n  \"gender\": \"MALE\",\n  \"birthDate\": \"1995-07-20\",\n  \"hireDate\": \"2024-06-01\",\n  \"managerId\": {{managerId}},\n  \"disability\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Hire with duplicate code → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Problem code is employee.code-taken\", () => {",
+                  "    const p = pm.response.json();",
+                  "    pm.expect(p.code).to.eql(\"employee.code-taken\");",
+                  "    pm.expect(p.status).to.eql(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{employeeCode}}\",\n  \"fullNameEn\": \"Duplicate\",\n  \"fullNameAr\": \"مكرر\",\n  \"nationalId\": \"{{nationalId}}\",\n  \"gender\": \"MALE\",\n  \"birthDate\": \"1990-01-01\",\n  \"hireDate\": \"2024-01-01\",\n  \"managerId\": null,\n  \"disability\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Hire with invalid fields → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Problem code is validation\", () => {",
+                  "    const p = pm.response.json();",
+                  "    pm.expect(p.code).to.eql(\"validation\");",
+                  "    pm.expect(p.status).to.eql(400);",
+                  "});",
+                  "pm.test(\"Reports field errors for code, fullNameEn, fullNameAr, nationalId, gender, birthDate, hireDate\", () => {",
+                  "    const fields = pm.response.json().errors.map(e => e.field);",
+                  "    [\"code\", \"fullNameEn\", \"fullNameAr\", \"nationalId\", \"gender\", \"birthDate\", \"hireDate\"].forEach(f => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"\",\n  \"fullNameEn\": \"\",\n  \"fullNameAr\": \"\",\n  \"nationalId\": \"123\",\n  \"gender\": null,\n  \"birthDate\": \"2999-01-01\",\n  \"hireDate\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Blank names/code, non-14-digit national ID, missing gender/hireDate and a future birth date."
+          }
+        },
+        {
+          "name": "Hire with unknown manager → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Problem code is employee.invalid-manager\", () => {",
+                  "    const p = pm.response.json();",
+                  "    pm.expect(p.code).to.eql(\"employee.invalid-manager\");",
+                  "    pm.expect(p.status).to.eql(422);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"NOMGR-{{runId}}\",\n  \"fullNameEn\": \"No Manager\",\n  \"fullNameAr\": \"بلا مدير\",\n  \"nationalId\": null,\n  \"gender\": \"MALE\",\n  \"birthDate\": \"1990-01-01\",\n  \"hireDate\": \"2024-01-01\",\n  \"managerId\": 999999999,\n  \"disability\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Hire without token → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{employeeCode}}\",\n  \"fullNameEn\": \"x\",\n  \"fullNameAr\": \"x\",\n  \"nationalId\": \"{{nationalId}}\",\n  \"gender\": \"MALE\",\n  \"birthDate\": \"1990-01-01\",\n  \"hireDate\": \"2024-01-01\",\n  \"managerId\": null,\n  \"disability\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Hire as read-only user → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"RO-{{runId}}\",\n  \"fullNameEn\": \"Read Only\",\n  \"fullNameAr\": \"قراءة\",\n  \"nationalId\": null,\n  \"gender\": \"MALE\",\n  \"birthDate\": \"1990-01-01\",\n  \"hireDate\": \"2024-01-01\",\n  \"managerId\": null,\n  \"disability\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{readerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. List  – GET /employees",
+      "item": [
+        {
+          "name": "List employees",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Body is a paged model\", () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b.content).to.be.an(\"array\");",
+                  "    [\"size\", \"number\", \"totalElements\", \"totalPages\"].forEach(k => pm.expect(b.page).to.have.property(k));",
+                  "});",
+                  "",
+                  "pm.test(\"Contains both hired employees\", () => {",
+                  "    const ids = pm.response.json().content.map(e => e.id);",
+                  "    pm.expect(ids).to.include(Number(pm.collectionVariables.get(\"managerId\")));",
+                  "    pm.expect(ids).to.include(Number(pm.collectionVariables.get(\"employeeId\")));",
+                  "    pm.expect(pm.response.json().page.totalElements).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ]
+            }
+          }
+        },
+        {
+          "name": "List with paging and sort",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Body is a paged model\", () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b.content).to.be.an(\"array\");",
+                  "    [\"size\", \"number\", \"totalElements\", \"totalPages\"].forEach(k => pm.expect(b.page).to.have.property(k));",
+                  "});",
+                  "",
+                  "const b = pm.response.json();",
+                  "pm.test(\"Page size 1, page 0, two pages\", () => {",
+                  "    pm.expect(b.content).to.have.lengthOf(1);",
+                  "    pm.expect(b.page.size).to.eql(1);",
+                  "    pm.expect(b.page.number).to.eql(0);",
+                  "    pm.expect(b.page.totalPages).to.eql(2);",
+                  "});",
+                  "pm.test(\"Sorted by code descending (MGR- before EMP-)\", () => {",
+                  "    pm.expect(b.content[0].code).to.eql(pm.collectionVariables.get(\"managerCode\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees?page=0&size=1&sort=code,desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "0"
+                },
+                {
+                  "key": "size",
+                  "value": "1"
+                },
+                {
+                  "key": "sort",
+                  "value": "code,desc"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List ACTIVE employees",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Body is a paged model\", () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b.content).to.be.an(\"array\");",
+                  "    [\"size\", \"number\", \"totalElements\", \"totalPages\"].forEach(k => pm.expect(b.page).to.have.property(k));",
+                  "});",
+                  "",
+                  "pm.test(\"All results are ACTIVE\", () => {",
+                  "    pm.response.json().content.forEach(e => pm.expect(e.status).to.eql(\"ACTIVE\"));",
+                  "    pm.expect(pm.response.json().page.totalElements).to.eql(2);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees?status=ACTIVE",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ACTIVE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List with invalid status → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees?status=FIRED",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "FIRED"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "List without token → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "List as read-only user → 200",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Body is a paged model\", () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b.content).to.be.an(\"array\");",
+                  "    [\"size\", \"number\", \"totalElements\", \"totalPages\"].forEach(k => pm.expect(b.page).to.have.property(k));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{readerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Get   – GET /employees/{id}",
+      "item": [
+        {
+          "name": "Get employee by id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Body has the EmployeeInfo shape\", () => {",
+                  "    const e = pm.response.json();",
+                  "    [\"id\", \"code\", \"fullNameEn\", \"fullNameAr\", \"gender\", \"birthDate\", \"hireDate\", \"status\",",
+                  "     \"terminationDate\", \"managerId\", \"disability\"].forEach(k => pm.expect(e).to.have.property(k));",
+                  "});",
+                  "",
+                  "pm.test(\"Returns the requested employee\", () => {",
+                  "    const e = pm.response.json();",
+                  "    pm.expect(e.id).to.eql(Number(pm.collectionVariables.get(\"employeeId\")));",
+                  "    pm.expect(e.fullNameAr).to.eql(\"عمر عادل\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "{{employeeId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get unknown employee → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Problem code is employee.not-found\", () => {",
+                  "    const p = pm.response.json();",
+                  "    pm.expect(p.code).to.eql(\"employee.not-found\");",
+                  "    pm.expect(p.status).to.eql(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/999999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "999999999"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get unknown employee in Arabic → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Problem code is employee.not-found\", () => {",
+                  "    const p = pm.response.json();",
+                  "    pm.expect(p.code).to.eql(\"employee.not-found\");",
+                  "    pm.expect(p.status).to.eql(404);",
+                  "});",
+                  "",
+                  "pm.test(\"Detail is localized (not the English message)\", () => {",
+                  "    pm.expect(pm.response.json().detail).to.not.eql(\"Employee not found.\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept-Language",
+                "value": "ar"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/999999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "999999999"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get with malformed id → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/not-a-number",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "not-a-number"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Update – PUT /employees/{id}",
+      "item": [
+        {
+          "name": "Update employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Body has the EmployeeInfo shape\", () => {",
+                  "    const e = pm.response.json();",
+                  "    [\"id\", \"code\", \"fullNameEn\", \"fullNameAr\", \"gender\", \"birthDate\", \"hireDate\", \"status\",",
+                  "     \"terminationDate\", \"managerId\", \"disability\"].forEach(k => pm.expect(e).to.have.property(k));",
+                  "});",
+                  "",
+                  "const e = pm.response.json();",
+                  "pm.test(\"Changes are applied\", () => {",
+                  "    pm.expect(e.fullNameEn).to.eql(\"Omar Adel Mahmoud\");",
+                  "    pm.expect(e.fullNameAr).to.eql(\"عمر عادل محمود\");",
+                  "    pm.expect(e.disability).to.eql(true);",
+                  "    pm.expect(e.managerId).to.eql(Number(pm.collectionVariables.get(\"managerId\")));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "{{employeeId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{employeeCode}}\",\n  \"fullNameEn\": \"Omar Adel Mahmoud\",\n  \"fullNameAr\": \"عمر عادل محمود\",\n  \"nationalId\": \"{{nationalId}}\",\n  \"gender\": \"MALE\",\n  \"birthDate\": \"1995-07-20\",\n  \"hireDate\": \"2024-06-01\",\n  \"managerId\": {{managerId}},\n  \"disability\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update with self as manager → 422",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 422\", () => pm.response.to.have.status(422));",
+                  "pm.test(\"Problem code is employee.invalid-manager\", () => {",
+                  "    const p = pm.response.json();",
+                  "    pm.expect(p.code).to.eql(\"employee.invalid-manager\");",
+                  "    pm.expect(p.status).to.eql(422);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "{{employeeId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{employeeCode}}\",\n  \"fullNameEn\": \"Omar Adel\",\n  \"fullNameAr\": \"عمر عادل\",\n  \"nationalId\": \"{{nationalId}}\",\n  \"gender\": \"MALE\",\n  \"birthDate\": \"1995-07-20\",\n  \"hireDate\": \"2024-06-01\",\n  \"managerId\": {{employeeId}},\n  \"disability\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update to another employee's code → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Problem code is employee.code-taken\", () => {",
+                  "    const p = pm.response.json();",
+                  "    pm.expect(p.code).to.eql(\"employee.code-taken\");",
+                  "    pm.expect(p.status).to.eql(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "{{employeeId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{managerCode}}\",\n  \"fullNameEn\": \"Omar Adel\",\n  \"fullNameAr\": \"عمر عادل\",\n  \"nationalId\": \"{{nationalId}}\",\n  \"gender\": \"MALE\",\n  \"birthDate\": \"1995-07-20\",\n  \"hireDate\": \"2024-06-01\",\n  \"managerId\": null,\n  \"disability\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update unknown employee → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Problem code is employee.not-found\", () => {",
+                  "    const p = pm.response.json();",
+                  "    pm.expect(p.code).to.eql(\"employee.not-found\");",
+                  "    pm.expect(p.status).to.eql(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/999999999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "999999999"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"GHOST-{{runId}}\",\n  \"fullNameEn\": \"Ghost\",\n  \"fullNameAr\": \"شبح\",\n  \"nationalId\": null,\n  \"gender\": \"MALE\",\n  \"birthDate\": \"1990-01-01\",\n  \"hireDate\": \"2024-01-01\",\n  \"managerId\": null,\n  \"disability\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update with invalid fields → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Problem code is validation\", () => {",
+                  "    const p = pm.response.json();",
+                  "    pm.expect(p.code).to.eql(\"validation\");",
+                  "    pm.expect(p.status).to.eql(400);",
+                  "});",
+                  "pm.test(\"Reports field errors for fullNameEn, nationalId, birthDate\", () => {",
+                  "    const fields = pm.response.json().errors.map(e => e.field);",
+                  "    [\"fullNameEn\", \"nationalId\", \"birthDate\"].forEach(f => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "{{employeeId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{employeeCode}}\",\n  \"fullNameEn\": \"   \",\n  \"fullNameAr\": \"عمر\",\n  \"nationalId\": \"ABCDEFGHIJKLMN\",\n  \"gender\": \"MALE\",\n  \"birthDate\": \"2999-12-31\",\n  \"hireDate\": \"2024-06-01\",\n  \"managerId\": null,\n  \"disability\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Update as read-only user → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "{{employeeId}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{employeeCode}}\",\n  \"fullNameEn\": \"Omar Adel Mahmoud\",\n  \"fullNameAr\": \"عمر عادل محمود\",\n  \"nationalId\": \"{{nationalId}}\",\n  \"gender\": \"MALE\",\n  \"birthDate\": \"1995-07-20\",\n  \"hireDate\": \"2024-06-01\",\n  \"managerId\": {{managerId}},\n  \"disability\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{readerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Terminate – POST /employees/{id}/terminate",
+      "item": [
+        {
+          "name": "Terminate without date → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 400\", () => pm.response.to.have.status(400));",
+                  "pm.test(\"Problem code is validation\", () => {",
+                  "    const p = pm.response.json();",
+                  "    pm.expect(p.code).to.eql(\"validation\");",
+                  "    pm.expect(p.status).to.eql(400);",
+                  "});",
+                  "pm.test(\"Reports field errors for terminationDate\", () => {",
+                  "    const fields = pm.response.json().errors.map(e => e.field);",
+                  "    [\"terminationDate\"].forEach(f => pm.expect(fields).to.include(f));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}/terminate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "{{employeeId}}",
+                "terminate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Terminate as read-only user → 403",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}/terminate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "{{employeeId}}",
+                "terminate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"terminationDate\": \"2025-12-31\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{readerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Terminate unknown employee → 404",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 404\", () => pm.response.to.have.status(404));",
+                  "pm.test(\"Problem code is employee.not-found\", () => {",
+                  "    const p = pm.response.json();",
+                  "    pm.expect(p.code).to.eql(\"employee.not-found\");",
+                  "    pm.expect(p.status).to.eql(404);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/999999999/terminate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "999999999",
+                "terminate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"terminationDate\": \"2025-12-31\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Terminate employee",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Body has the EmployeeInfo shape\", () => {",
+                  "    const e = pm.response.json();",
+                  "    [\"id\", \"code\", \"fullNameEn\", \"fullNameAr\", \"gender\", \"birthDate\", \"hireDate\", \"status\",",
+                  "     \"terminationDate\", \"managerId\", \"disability\"].forEach(k => pm.expect(e).to.have.property(k));",
+                  "});",
+                  "",
+                  "const e = pm.response.json();",
+                  "pm.test(\"Employee is TERMINATED on the given date\", () => {",
+                  "    pm.expect(e.status).to.eql(\"TERMINATED\");",
+                  "    pm.expect(e.terminationDate).to.eql(\"2025-12-31\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}/terminate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "{{employeeId}}",
+                "terminate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"terminationDate\": \"2025-12-31\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Terminate again → 409",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 409\", () => pm.response.to.have.status(409));",
+                  "pm.test(\"Problem code is employee.already-terminated\", () => {",
+                  "    const p = pm.response.json();",
+                  "    pm.expect(p.code).to.eql(\"employee.already-terminated\");",
+                  "    pm.expect(p.status).to.eql(409);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees/{{employeeId}}/terminate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees",
+                "{{employeeId}}",
+                "terminate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"terminationDate\": \"2026-01-31\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "List TERMINATED employees",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status is 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Body is a paged model\", () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b.content).to.be.an(\"array\");",
+                  "    [\"size\", \"number\", \"totalElements\", \"totalPages\"].forEach(k => pm.expect(b.page).to.have.property(k));",
+                  "});",
+                  "",
+                  "pm.test(\"Only the terminated employee is returned\", () => {",
+                  "    const b = pm.response.json();",
+                  "    pm.expect(b.page.totalElements).to.eql(1);",
+                  "    pm.expect(b.content[0].id).to.eql(Number(pm.collectionVariables.get(\"employeeId\")));",
+                  "    pm.expect(b.content[0].status).to.eql(\"TERMINATED\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/employees?status=TERMINATED",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "employees"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "TERMINATED"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

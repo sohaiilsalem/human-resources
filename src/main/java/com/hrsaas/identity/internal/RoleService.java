@@ -44,6 +44,10 @@ class RoleService {
 		return roles.findAllByOrderById();
 	}
 
+	List<Role> findByCodes(Collection<String> codes) {
+		return codes.isEmpty() ? List.of() : roles.findByCodeIn(Set.copyOf(codes));
+	}
+
 	@Transactional
 	Role create(CreateRole request) {
 		if (roles.existsByCode(request.code())) {

@@ -20,6 +20,9 @@ final class EgyptianLeaveTypes {
 
 	static final String ANNUAL = "ANNUAL";
 
+	/** Default workflow "Direct manager, then HR" (workflow module); annual and casual leave use the default one. */
+	private static final String MANAGER_HR = "MANAGER_HR";
+
 	private EgyptianLeaveTypes() {
 	}
 
@@ -28,18 +31,18 @@ final class EgyptianLeaveTypes {
 		return List.of(
 				// days from EntitlementRules; rest days and holidays inside the leave are not counted
 				new LeaveTypeRequest(ANNUAL, "Annual leave", "إجازة اعتيادية", LeaveCategory.ANNUAL, true, true, null,
-						WORKING_DAYS, true, null, null, null, null, null, false, true),
+						WORKING_DAYS, true, null, null, null, null, null, false, true, null),
 				// unplanned absence, counted within annual leave
 				new LeaveTypeRequest("CASUAL", "Casual leave", "إجازة عارضة", LeaveCategory.CASUAL, true, true, ANNUAL,
-						WORKING_DAYS, false, 2, 7, null, null, null, false, true),
+						WORKING_DAYS, false, 2, 7, null, null, null, false, true, null),
 				new LeaveTypeRequest("SICK", "Sick leave", "إجازة مرضية", LeaveCategory.SICK, true, false, null,
-						CALENDAR_DAYS, false, null, null, null, null, null, true, true),
+						CALENDAR_DAYS, false, null, null, null, null, null, true, true, MANAGER_HR),
 				new LeaveTypeRequest("MATERNITY", "Maternity leave", "إجازة وضع", LeaveCategory.MATERNITY, true, false,
-						null, CALENDAR_DAYS, false, 120, null, 3, null, Gender.FEMALE, true, true),
+						null, CALENDAR_DAYS, false, 120, null, 3, null, Gender.FEMALE, true, true, MANAGER_HR),
 				new LeaveTypeRequest("HAJJ", "Hajj leave", "إجازة الحج", LeaveCategory.HAJJ, true, false, null,
-						CALENDAR_DAYS, false, 30, null, 1, 60, null, false, true),
+						CALENDAR_DAYS, false, 30, null, 1, 60, null, false, true, MANAGER_HR),
 				new LeaveTypeRequest("UNPAID", "Unpaid leave", "إجازة بدون أجر", LeaveCategory.UNPAID, false, false,
-						null, WORKING_DAYS, false, null, null, null, null, null, false, true));
+						null, WORKING_DAYS, false, null, null, null, null, null, false, true, MANAGER_HR));
 	}
 
 }
